@@ -1,0 +1,37 @@
+# EVRY - Contexto de Arquitectura y Reglas de Negocio (Cursor Rules)
+
+## 1. Stack Tecnológico y Diseño UI
+- **Framework**: Next.js 14+ (App Router), TypeScript, Tailwind CSS, Lucide React (iconos).
+- **Formato**: Progressive Web App (PWA) desplegada en Vercel sin comisiones de tiendas nativas.
+- **Backend**: Supabase (PostgreSQL + extensión espacial PostGIS para geolocalización en Sevilla).
+- **Pagos y Fiscalidad**: Stripe Connect (pagos divididos, KYC), extracción de datos para Modelo 238 (DAC7) y facturación VeriFactu.
+- **Estética**: Fondo negro profundo (`#050505` y `#0A0A0A`), tarjetas en gris carbón oscuro (`#121212` / `#18181B`), bordes sutiles y detalles de alto contraste en verde lima (`#A3E635`, `#84CC16`, `#BEF264`).
+
+## 2. Reglas de Monetización y Unit Economics
+- **Paridad Nominal**: 1 Crédito = 1,00 € en escaparate, con cero gastos de gestión sorpresa en el checkout.
+- **Vigencia de Créditos**: Configurados jurídicamente como bonos multiservicio con caducidad de 6 meses renovables automáticamente en cada recarga.
+- **Packs B2C**:
+  - Pack Inicio: 20 € = 20 créditos (0% bono).
+  - Pack Progresión: 50 € = 55 créditos (+10% bonificación).
+  - Pack Pro Adherencia: 100 € = 115 créditos (+15% bonificación).
+- **Take Rate y Planes SaaS (Prohibido el tramo al 0% de comisión general)**:
+  - Nivel 1 (Lanzamiento / Autónomo - 0 €/mes): 20% comisión en sesiones sueltas (drop-in) y 14%-15% en packs de sesiones / microciclos (4-8 semanas).
+  - Nivel 2 (Entrenador Pro - 39 €/mes): 9% comisión en nuevos clientes y 3,5% Tasa Técnica Suelo (BYOC - alumnos propios).
+  - Nivel 3 (Centro Deportivo Business - 99€-149€/mes): 8%-10% orgánico, 3,5% BYOC y opción de precios dinámicos (SmartRate con tarifa mínima Rate Floor en horas valle).
+
+## 3. Blindaje Legal y Regulatorio (Compliance by Design)
+- **Buscador IA con Privacidad Efímera (Art. 9 RGPD y LOPS)**:
+  - NUNCA guardar el prompt de síntomas clínicos o dolor (ej. "dolor lumbar") en tablas de PostgreSQL/Supabase.
+  - Procesar en memoria RAM volátil, extraer etiquetas funcionales (`movilidad articular`, `bajo impacto`, `fortalecimiento de core`) y descartar el texto original.
+  - Si se detecta dolor/patología: exigir checkbox de consentimiento explícito Art. 9.2 RGPD, prohibir el verbo "prescribir" (usar "recomendar opciones de actividad física" o "filtrar sesiones compatibles") y filtrar resultados en PostGIS EXCLUSIVAMENTE a titulados universitarios en `CAFYD`.
+- **Portal de Verificación (24-48h) y Seguro SRC**:
+  - Suelo mínimo: Grado `CAFYD`, Técnico Superior (`TSEAS`/`TSAF`/`TAFAD`) o `CERTIFICADO_PROFESIONALIDAD`.
+  - Bloqueo automático mediante trigger si `src_expiration_date <= CURRENT_DATE` (RC Profesional + RC Explotación).
+  - Si asisten menores (`allows_minors = true`), exigir certificado negativo y formación del Art. 57 LOPIVI.
+- **Vía Pública en Sevilla (GUMA / IMD)**:
+  - Las ubicaciones outdoor en parques se etiquetan estrictamente como "Punto de encuentro propuesto por el profesional independiente". Exigir declaración responsable y prohibir cartelería física o megafonía.
+- **Umbral de 12 Horas y Rescate sin Laboralidad (Doctrina TJUE C-434/15)**:
+  - El profesional fija libremente precio, duración, aforo mínimo y máximo.
+  - A 12h del inicio, si no llega al mínimo: Vía A (reducir comisión de EVRY al 0% si el entrenador acepta impartirla) o Vía B (emitir becas promocionales de créditos a lista de espera / niveles Oro y Platino). Nunca abonar subvención directa al monitor por plazas vacías.
+- **Blindaje de Lealtad (Regla 4x / Tope 25%)**:
+  - Tramos Bronce, Plata, Oro y Platino. Las recompensas de Oro/Platino (50% dto. o sesión gratis asumidas por EVRY) solo se desbloquean si el `accumulated_net_margin` del usuario es >= 4 veces el coste de la recompensa.
