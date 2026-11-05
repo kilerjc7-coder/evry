@@ -1,19 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { Award, Coins, Compass } from "lucide-react";
+import {
+  Award,
+  CalendarCheck2,
+  Coins,
+  Compass,
+  UserRound,
+} from "lucide-react";
+import { AppHeader } from "@/components/app-header";
 import { BottomNav } from "@/components/bottom-nav";
-import { Logo } from "@/components/logo";
+import { ATHLETE_NOTIFICATIONS } from "@/components/notifications-panel";
+import { BookingsView } from "@/components/athlete/bookings-view";
 import { ExploreView } from "@/components/athlete/explore-view";
 import { LoyaltyView } from "@/components/athlete/loyalty-view";
+import { AthleteProfileView } from "@/components/athlete/profile-view";
 import { WalletView } from "@/components/athlete/wallet-view";
 
-type AthleteTab = "explorar" | "monedero" | "lealtad";
+type AthleteTab =
+  | "explorar"
+  | "reservas"
+  | "monedero"
+  | "lealtad"
+  | "perfil";
 
 const ITEMS = [
   { id: "explorar" as const, label: "Explorar", icon: Compass },
+  { id: "reservas" as const, label: "Mis Reservas", icon: CalendarCheck2 },
   { id: "monedero" as const, label: "Monedero", icon: Coins },
   { id: "lealtad" as const, label: "Lealtad", icon: Award },
+  { id: "perfil" as const, label: "Perfil", icon: UserRound },
 ];
 
 export function AthleteApp({ onExit }: { onExit: () => void }) {
@@ -22,11 +38,10 @@ export function AthleteApp({ onExit }: { onExit: () => void }) {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white">
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#050505]/90 px-4 py-3 backdrop-blur-md">
-        <div className="mx-auto flex max-w-md items-center justify-between">
-          <button type="button" onClick={onExit} aria-label="Volver al inicio">
-            <Logo />
-          </button>
+      <AppHeader
+        onExit={onExit}
+        notifications={ATHLETE_NOTIFICATIONS}
+        trailing={
           <button
             type="button"
             onClick={() => setTab("monedero")}
@@ -34,8 +49,8 @@ export function AthleteApp({ onExit }: { onExit: () => void }) {
           >
             <span className="text-[#A3E635]">{credits}</span> Cr
           </button>
-        </div>
-      </header>
+        }
+      />
 
       <main className="mx-auto max-w-md px-4 pb-28 pt-5">
         {tab === "explorar" && (
@@ -48,6 +63,7 @@ export function AthleteApp({ onExit }: { onExit: () => void }) {
             }}
           />
         )}
+        {tab === "reservas" && <BookingsView />}
         {tab === "monedero" && (
           <WalletView
             credits={credits}
@@ -55,6 +71,7 @@ export function AthleteApp({ onExit }: { onExit: () => void }) {
           />
         )}
         {tab === "lealtad" && <LoyaltyView />}
+        {tab === "perfil" && <AthleteProfileView onLogout={onExit} />}
       </main>
 
       <BottomNav items={ITEMS} active={tab} onChange={setTab} />

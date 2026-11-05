@@ -1,3 +1,12 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  Dumbbell,
+  Flame,
+  Leaf,
+  StretchHorizontal,
+  Trees,
+} from "lucide-react";
+
 export type ChipId = "intensidad" | "movilidad" | "fuerza" | "aire" | "suave";
 
 export type Session = {
@@ -11,14 +20,19 @@ export type Session = {
   chips: ChipId[];
   x: number;
   y: number;
+  dateKey?: string;
 };
 
-export const CHIPS: { id: ChipId; label: string; emoji: string }[] = [
-  { id: "intensidad", label: "Alta intensidad", emoji: "🔥" },
-  { id: "movilidad", label: "Movilidad", emoji: "🧘‍♂️" },
-  { id: "fuerza", label: "Fuerza", emoji: "🏋️" },
-  { id: "aire", label: "Al aire libre", emoji: "🌳" },
-  { id: "suave", label: "Suave", emoji: "🌿" },
+export const CHIPS: {
+  id: ChipId;
+  label: string;
+  icon: LucideIcon;
+}[] = [
+  { id: "intensidad", label: "Alta intensidad", icon: Flame },
+  { id: "movilidad", label: "Movilidad", icon: StretchHorizontal },
+  { id: "fuerza", label: "Fuerza", icon: Dumbbell },
+  { id: "aire", label: "Al aire libre", icon: Trees },
+  { id: "suave", label: "Suave", icon: Leaf },
 ];
 
 export const SESSIONS: Session[] = [
@@ -33,6 +47,7 @@ export const SESSIONS: Session[] = [
     chips: ["movilidad", "suave", "aire"],
     x: 30,
     y: 68,
+    dateKey: "2026-11-07",
   },
   {
     id: "2",
@@ -45,6 +60,7 @@ export const SESSIONS: Session[] = [
     chips: ["fuerza", "intensidad", "aire"],
     x: 62,
     y: 30,
+    dateKey: "2026-11-10",
   },
   {
     id: "3",
@@ -57,6 +73,7 @@ export const SESSIONS: Session[] = [
     chips: ["movilidad", "suave"],
     x: 74,
     y: 58,
+    dateKey: "2026-11-05",
   },
   {
     id: "4",
@@ -69,6 +86,7 @@ export const SESSIONS: Session[] = [
     chips: ["intensidad", "aire"],
     x: 46,
     y: 46,
+    dateKey: "2026-11-09",
   },
   {
     id: "5",
@@ -81,5 +99,6 @@ export const SESSIONS: Session[] = [
     chips: ["fuerza", "intensidad"],
     x: 54,
     y: 74,
+    dateKey: "2026-11-13",
   },
 ];
