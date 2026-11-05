@@ -14,8 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "EVRY — Entrenamiento en Sevilla",
-  description:
-    "PWA de sesiones y microciclos con educadores verificados, créditos 1 Cr = 1€ y mapa PostGIS en Sevilla.",
+  description: "Encuentra sesiones cerca de ti y reserva con créditos.",
   applicationName: "EVRY",
   appleWebApp: {
     capable: true,

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { hasClinicalTerms } from "@/lib/clinical";
 
 interface EphemeralSearchRequest {
   query: string;
@@ -7,31 +8,11 @@ interface EphemeralSearchRequest {
   explicitRgpdArt9Consent: boolean;
 }
 
-const CLINICAL_PAIN_KEYWORDS = [
-  "dolor",
-  "lumbar",
-  "cervical",
-  "lesión",
-  "lesion",
-  "hernia",
-  "ciática",
-  "ciatica",
-  "patología",
-  "patologia",
-  "espalda",
-  "rehabilitación",
-];
-
 export async function POST(req: Request) {
   try {
-    // 1. Lectura en memoria volátil RAM (Jamás se persiste ni se hace log del texto clínico)
     const body: EphemeralSearchRequest = await req.json();
     const rawText = (body.query || "").toLowerCase();
-
-    // 2. Detección de sintomatología o dolor agudo/subclínico
-    const hasClinicalSymptoms = CLINICAL_PAIN_KEYWORDS.some((word) =>
-      rawText.includes(word)
-    );
+    const hasClinicalSymptoms = hasClinicalTerms(rawText);
 
     // 3. Si hay términos de salud y no ha marcado la casilla del Art. 9.2 RGPD, solicitar consentimiento
     if (hasClinicalSymptoms && !body.explicitRgpdArt9Consent) {
