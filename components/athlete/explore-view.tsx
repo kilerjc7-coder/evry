@@ -4,118 +4,24 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Filter,
   MapPin,
-  Mic,
   Minimize2,
   X,
 } from "lucide-react";
 import { MapSessionPreview } from "@/components/athlete/explore/map-session-preview";
 import { MapSessionSheet } from "@/components/athlete/explore/map-session-sheet";
+import { SearchBox } from "@/components/athlete/explore/search-box";
 import { SessionCard } from "@/components/athlete/explore/session-card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import { hasClinicalTerms, normalizeText } from "@/lib/clinical";
 import { CHIPS, SESSIONS, type ChipId, type Session } from "@/lib/sessions";
 
-type SpeechResult = {
-  results: ArrayLike<ArrayLike<{ transcript: string }>>;
-};
-
-type SpeechRec = {
-  lang: string;
-  interimResults: boolean;
-  onresult: ((event: SpeechResult) => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-};
-
-function startDictation(onText: (text: string) => void, onEnd: () => void) {
-  const w = window as Window & {
-    SpeechRecognition?: new () => SpeechRec;
-    webkitSpeechRecognition?: new () => SpeechRec;
-  };
-  const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
-  if (!Ctor) {
-    onEnd();
-    return;
-  }
-  const rec = new Ctor();
-  rec.lang = "es-ES";
-  rec.interimResults = false;
-  rec.onresult = (event) => {
-    const transcript = event.results[0]?.[0]?.transcript ?? "";
-    if (transcript) onText(transcript);
-  };
-  rec.onend = onEnd;
-  rec.start();
-}
-
-function SearchBox({
-  query,
-  setQuery,
-  setConsent,
-  listening,
-  setListening,
-  focused,
-  setFocused,
-  compact,
-}: {
-  query: string;
-  setQuery: (v: string) => void;
-  setConsent: (v: boolean) => void;
-  listening: boolean;
-  setListening: (v: boolean) => void;
-  focused: boolean;
-  setFocused: (v: boolean) => void;
-  compact?: boolean;
-}) {
-  const expanded = focused || listening || query.length > 0;
-
-  return (
-    <div
-      className={`flex items-start rounded-[28px] border bg-[#0A0A0A]/95 backdrop-blur-md transition-all duration-300 ease-out ${
-        expanded
-          ? "min-h-24 border-[#A3E635]/50 shadow-[0_0_32px_rgba(163,230,53,0.12)]"
-          : "min-h-14 border-white/10"
-      } ${compact ? "w-full" : ""}`}
-    >
-      <textarea
-        value={query}
-        rows={expanded ? 3 : 1}
-        onFocus={() => setFocused(true)}
-        onBlur={() => {
-          if (!query && !listening) setFocused(false);
-        }}
-        onChange={(event) => {
-          const next = event.target.value;
-          setQuery(next);
-          if (!hasClinicalTerms(next)) setConsent(false);
-        }}
-        placeholder="¿Qué quieres entrenar?"
-        className={`w-full resize-none bg-transparent px-5 py-4 text-base text-white outline-none placeholder:text-zinc-600 transition-all duration-300 ${
-          expanded ? "pt-4" : "py-3.5 leading-[1.75rem]"
-        }`}
-      />
-      <button
-        type="button"
-        aria-label="Dictado por voz"
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => {
-          setFocused(true);
-          setListening(true);
-          startDictation(
-            (text) => setQuery(query ? `${query} ${text}` : text),
-            () => setListening(false)
-          );
-        }}
-        className={`m-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition ${
-          listening ? "bg-white text-black" : "bg-[#A3E635] text-black"
-        }`}
-      >
-        <Mic className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
+/** Clears sticky AppHeader (logo + py) + safe area; used by expanded map chrome. */
+const MAP_EXPANDED_TOP =
+  "top-[max(4.5rem,calc(env(safe-area-inset-top)+3.75rem))]";
+/** Explicit height — avoids collapse when leaving h-[38vh] (transition-all was zeroing layout). */
+const MAP_EXPANDED_HEIGHT =
+  "h-[calc(100dvh-max(4.5rem,calc(env(safe-area-inset-top)+3.75rem)))]";
 
 function FilterPanel({
   chip,
@@ -198,9 +104,9 @@ function MapCanvas({
       }}
       aria-label={expanded ? "Mapa expandido" : "Expandir mapa"}
       className={cn(
-        "relative w-full overflow-hidden border border-border bg-[#07110c] text-left motion-safe:transition-all motion-safe:duration-slow motion-reduce:transition-none",
+        "relative w-full overflow-hidden border border-border bg-[#07110c] text-left",
         expanded
-          ? "fixed inset-0 z-50 h-dvh rounded-none border-0"
+          ? `fixed inset-x-0 bottom-0 z-50 ${MAP_EXPANDED_TOP} ${MAP_EXPANDED_HEIGHT} rounded-none border-0`
           : "h-[38vh] min-h-56 cursor-pointer rounded-2xl"
       )}
     >
@@ -437,17 +343,23 @@ export function ExploreView({
       ) : null}
 
       {mapExpanded && (
-        <div className="pointer-events-none fixed inset-0 z-[55]">
-          <div className="pointer-events-auto absolute left-4 right-4 top-4 max-w-md space-y-3 sm:right-auto sm:w-80">
+        <div
+          className={cn(
+            "pointer-events-none fixed inset-x-0 bottom-0 z-[55]",
+            MAP_EXPANDED_TOP
+          )}
+        >
+          {/* Same horizontal rhythm as athlete main: mx-auto max-w-md px-4 */}
+          <div className="pointer-events-auto mx-auto w-full max-w-md space-y-3 px-4 pt-3">
             <div className="flex items-start gap-2">
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <SearchBox {...searchProps} compact />
               </div>
               <button
                 type="button"
                 aria-label="Minimizar mapa"
                 onClick={() => setMapExpanded(false)}
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-[#0A0A0A]/95 text-white backdrop-blur-md transition hover:border-[#A3E635]/50 hover:text-[#A3E635]"
+                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border bg-surface/95 text-fg backdrop-blur-md transition hover:border-border-brand hover:text-brand"
               >
                 <Minimize2 className="h-4 w-4" />
               </button>
@@ -455,11 +367,12 @@ export function ExploreView({
             <button
               type="button"
               onClick={() => setFiltersOpen((v) => !v)}
-              className={`flex h-11 items-center gap-2 rounded-2xl border px-4 text-sm font-semibold backdrop-blur-md transition ${
+              className={cn(
+                "flex h-11 w-full items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold backdrop-blur-md transition",
                 filtersOpen || chip
-                  ? "border-[#A3E635]/50 bg-[#A3E635]/15 text-[#A3E635]"
-                  : "border-white/10 bg-[#0A0A0A]/95 text-zinc-300"
-              }`}
+                  ? "border-border-brand bg-brand-muted text-brand"
+                  : "border-border bg-surface/95 text-fg-muted"
+              )}
             >
               <Filter className="h-4 w-4" />
               Añadir filtros

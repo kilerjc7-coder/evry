@@ -16,7 +16,7 @@ export function BottomNav<T extends string>({
   onChange: (id: T) => void;
 }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/95 backdrop-blur-md">
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/95 backdrop-blur-md lg:hidden">
       <div
         className="mx-auto grid max-w-md px-1 pt-2"
         style={{

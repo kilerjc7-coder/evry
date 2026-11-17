@@ -52,7 +52,7 @@ export function AthleteApp({ onExit }: { onExit: () => void }) {
         }
       />
 
-      <main className="mx-auto max-w-md px-4 pb-28 pt-5">
+      <main className="mx-auto max-w-md px-4 pt-5 pb-28 lg:max-w-7xl lg:px-6 lg:pt-6 lg:pb-8">
         {tab === "explorar" && (
           <ExploreView
             credits={credits}
