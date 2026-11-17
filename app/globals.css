@@ -1,22 +1,162 @@
 @import "tailwindcss";
 
+/* ─── EVRY design tokens (source of truth) ─── */
 :root {
-  --background: #050505;
-  --foreground: #ededed;
-  --lime: #a3e635;
+  /* Canvas */
+  --evry-bg: #050505;
+  --evry-bg-elevated: #0a0a0a;
+
+  /* Surfaces */
+  --evry-surface: #101013;
+  --evry-surface-raised: #121212;
+  --evry-surface-overlay: #18181b;
+
+  /* Brand (lime) */
+  --evry-brand: #a3e635;
+  --evry-brand-hover: #bef264;
+  --evry-brand-pressed: #84cc16;
+  --evry-brand-muted: color-mix(in srgb, #a3e635 15%, transparent);
+  --evry-brand-subtle: color-mix(in srgb, #a3e635 10%, transparent);
+
+  /* Text */
+  --evry-fg: #ededed;
+  --evry-fg-muted: #a1a1aa;
+  --evry-fg-subtle: #71717a;
+  --evry-fg-faint: #52525b;
+  --evry-on-brand: #000000;
+
+  /* Borders / rings */
+  --evry-border: color-mix(in srgb, white 10%, transparent);
+  --evry-border-strong: color-mix(in srgb, white 20%, transparent);
+  --evry-border-brand: color-mix(in srgb, #a3e635 50%, transparent);
+
+  /* Feedback */
+  --evry-danger: #f87171;
+  --evry-danger-muted: color-mix(in srgb, #f87171 40%, transparent);
+
+  /* Typography */
+  --evry-font-sans: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  --evry-font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --evry-text-2xs: 0.625rem;
+  --evry-text-xs: 0.75rem;
+  --evry-text-sm: 0.875rem;
+  --evry-text-base: 1rem;
+  --evry-text-lg: 1.125rem;
+  --evry-text-xl: 1.25rem;
+  --evry-text-2xl: 1.5rem;
+  --evry-tracking-tight: -0.025em;
+  --evry-tracking-wider: 0.05em;
+
+  /* Spacing (product-specific) */
+  --evry-space-section: 1.25rem;
+  --evry-space-page-x: 1rem;
+  --evry-space-nav-safe: 5rem;
+
+  /* Radii */
+  --evry-radius-sm: 0.75rem;
+  --evry-radius-md: 1rem;
+  --evry-radius-lg: 1.375rem;
+  --evry-radius-xl: 1.5rem;
+  --evry-radius-2xl: 1.75rem;
+  --evry-radius-full: 9999px;
+
+  /* Shadows */
+  --evry-shadow-card: 0 8px 20px rgba(0, 0, 0, 0.35);
+  --evry-shadow-brand-glow: 0 0 32px rgba(163, 230, 53, 0.12);
+  --evry-shadow-none: none;
+
+  /* Motion */
+  --evry-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --evry-duration-fast: 150ms;
+  --evry-duration-base: 300ms;
+  --evry-duration-slow: 500ms;
+
+  /* Interactive states */
+  --evry-opacity-disabled: 0.5;
+  --evry-scale-press: 0.99;
+  --evry-ring-focus: 0 0 0 2px var(--evry-bg), 0 0 0 4px var(--evry-brand);
+
+  /* Legacy aliases (compat) */
+  --background: var(--evry-bg);
+  --foreground: var(--evry-fg);
+  --lime: var(--evry-brand);
 }
 
+/* ─── Tailwind CSS 4 theme bridge ─── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Colors → bg-*, text-*, border-* */
+  --color-bg: var(--evry-bg);
+  --color-bg-elevated: var(--evry-bg-elevated);
+  --color-surface: var(--evry-surface);
+  --color-surface-raised: var(--evry-surface-raised);
+  --color-surface-overlay: var(--evry-surface-overlay);
+  --color-brand: var(--evry-brand);
+  --color-brand-hover: var(--evry-brand-hover);
+  --color-brand-pressed: var(--evry-brand-pressed);
+  --color-brand-muted: var(--evry-brand-muted);
+  --color-brand-subtle: var(--evry-brand-subtle);
+  --color-fg: var(--evry-fg);
+  --color-fg-muted: var(--evry-fg-muted);
+  --color-fg-subtle: var(--evry-fg-subtle);
+  --color-fg-faint: var(--evry-fg-faint);
+  --color-on-brand: var(--evry-on-brand);
+  --color-border: var(--evry-border);
+  --color-border-strong: var(--evry-border-strong);
+  --color-border-brand: var(--evry-border-brand);
+  --color-danger: var(--evry-danger);
+  --color-danger-muted: var(--evry-danger-muted);
+
+  /* Legacy color utilities */
+  --color-background: var(--evry-bg);
+  --color-foreground: var(--evry-fg);
+  --color-lime: var(--evry-brand);
+
+  /* Typography */
+  --font-sans: var(--evry-font-sans);
+  --font-mono: var(--evry-font-mono);
+  --text-2xs: var(--evry-text-2xs);
+  --text-xs: var(--evry-text-xs);
+  --text-sm: var(--evry-text-sm);
+  --text-base: var(--evry-text-base);
+  --text-lg: var(--evry-text-lg);
+  --text-xl: var(--evry-text-xl);
+  --text-2xl: var(--evry-text-2xl);
+  --tracking-tight: var(--evry-tracking-tight);
+  --tracking-wider: var(--evry-tracking-wider);
+
+  /* Spacing */
+  --spacing-section: var(--evry-space-section);
+  --spacing-page-x: var(--evry-space-page-x);
+  --spacing-nav-safe: var(--evry-space-nav-safe);
+
+  /* Radii → rounded-* */
+  --radius-sm: var(--evry-radius-sm);
+  --radius-md: var(--evry-radius-md);
+  --radius-lg: var(--evry-radius-lg);
+  --radius-xl: var(--evry-radius-xl);
+  --radius-2xl: var(--evry-radius-2xl);
+  --radius-full: var(--evry-radius-full);
+
+  /* Shadows → shadow-* */
+  --shadow-card: var(--evry-shadow-card);
+  --shadow-brand-glow: var(--evry-shadow-brand-glow);
+  --shadow-none: var(--evry-shadow-none);
+
+  /* Motion */
+  --ease-out: var(--evry-ease-out);
+  --duration-fast: var(--evry-duration-fast);
+  --duration-base: var(--evry-duration-base);
+  --duration-slow: var(--evry-duration-slow);
+
+  /* Animations → animate-* */
+  --animate-slide-down: slideDown 0.3s var(--evry-ease-out);
+  --animate-fade-slide: fadeSlide 0.25s var(--evry-ease-out);
 }
 
 body {
-  background: #050505;
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  background: var(--evry-bg);
+  color: var(--evry-fg);
+  font-family: var(--evry-font-sans);
 }
 
 .no-scrollbar {
