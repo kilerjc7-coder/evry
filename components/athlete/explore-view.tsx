@@ -1,14 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Filter,
   MapPin,
   Mic,
   Minimize2,
-  Sparkles,
   X,
 } from "lucide-react";
+import { MapSessionPreview } from "@/components/athlete/explore/map-session-preview";
+import { MapSessionSheet } from "@/components/athlete/explore/map-session-sheet";
+import { SessionCard } from "@/components/athlete/explore/session-card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/cn";
 import { hasClinicalTerms, normalizeText } from "@/lib/clinical";
 import { CHIPS, SESSIONS, type ChipId, type Session } from "@/lib/sessions";
 
@@ -167,15 +171,17 @@ function FilterPanel({
 function MapCanvas({
   sessions,
   activeId,
-  setActiveId,
+  onSelectPin,
   expanded,
   onExpand,
+  hideExpandHint,
 }: {
   sessions: Session[];
   activeId: string | null;
-  setActiveId: (id: string | null) => void;
+  onSelectPin: (id: string) => void;
   expanded: boolean;
   onExpand: () => void;
+  hideExpandHint?: boolean;
 }) {
   return (
     <div
@@ -191,23 +197,24 @@ function MapCanvas({
         }
       }}
       aria-label={expanded ? "Mapa expandido" : "Expandir mapa"}
-      className={`relative w-full overflow-hidden border border-white/10 bg-[#07110c] text-left transition-all duration-500 ease-out ${
+      className={cn(
+        "relative w-full overflow-hidden border border-border bg-[#07110c] text-left motion-safe:transition-all motion-safe:duration-slow motion-reduce:transition-none",
         expanded
           ? "fixed inset-0 z-50 h-dvh rounded-none border-0"
-          : "h-[38vh] min-h-56 cursor-pointer rounded-[28px]"
-      }`}
+          : "h-[38vh] min-h-56 cursor-pointer rounded-2xl"
+      )}
     >
-      <div className="absolute inset-0 opacity-30 bg-[radial-gradient(#a3e635_1px,transparent_1px)] [background-size:22px_22px]" />
-      <div className="absolute left-[18%] top-[22%] h-24 w-28 rounded-full bg-emerald-800/40 blur-sm" />
-      <div className="absolute bottom-[12%] left-[8%] h-32 w-40 rounded-full bg-emerald-900/50 blur-sm" />
-      <div className="absolute right-[-8%] top-[30%] h-40 w-24 rotate-12 rounded-full bg-emerald-950/80" />
+      <div className="absolute inset-0 opacity-30 bg-[radial-gradient(var(--evry-brand)_1px,transparent_1px)] [background-size:22px_22px]" />
+      <div className="absolute left-[18%] top-[22%] h-24 w-28 rounded-full bg-brand-muted blur-sm" />
+      <div className="absolute bottom-[12%] left-[8%] h-32 w-40 rounded-full bg-brand-subtle blur-sm" />
+      <div className="absolute right-[-8%] top-[30%] h-40 w-24 rotate-12 rounded-full bg-surface-overlay" />
 
-      {!expanded && (
-        <span className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-[11px] text-zinc-300 backdrop-blur-sm">
-          <MapPin className="h-3 w-3 text-[#A3E635]" />
+      {!expanded && !hideExpandHint ? (
+        <span className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 rounded-full border border-border bg-bg/50 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-sm">
+          <MapPin className="h-3 w-3 text-brand" aria-hidden />
           Toca para expandir
         </span>
-      )}
+      ) : null}
 
       {sessions.map((session) => {
         const selected = activeId === session.id;
@@ -217,19 +224,22 @@ function MapCanvas({
           <button
             key={session.id}
             type="button"
+            aria-pressed={selected}
+            aria-label={`${session.title}, ${session.priceCredits} créditos`}
             onClick={(event) => {
               event.stopPropagation();
-              setActiveId(session.id);
+              onSelectPin(session.id);
             }}
-            className="absolute z-10 -translate-x-1/2 -translate-y-1/2"
+            className="absolute z-10 -translate-x-1/2 -translate-y-1/2 focus-visible:outline-none focus-visible:shadow-[var(--evry-ring-focus)]"
             style={{ left: `${left}%`, top: `${top}%` }}
           >
             <span
-              className={`block rounded-full px-2.5 py-1 text-xs font-semibold shadow-[0_8px_20px_rgba(0,0,0,0.35)] transition ${
+              className={cn(
+                "block rounded-full px-2.5 py-1 text-xs font-semibold shadow-card motion-safe:transition motion-safe:duration-fast motion-reduce:transition-none",
                 selected
-                  ? "scale-110 bg-white text-black"
-                  : "bg-[#A3E635] text-black"
-              }`}
+                  ? "scale-110 bg-fg text-on-brand ring-2 ring-brand"
+                  : "bg-brand text-on-brand"
+              )}
             >
               {session.priceCredits} Cr
             </span>
@@ -256,6 +266,7 @@ export function ExploreView({
   const [mapExpanded, setMapExpanded] = useState(false);
   const [booked, setBooked] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   const clinical = hasClinicalTerms(query);
 
@@ -277,11 +288,51 @@ export function ExploreView({
     });
   }, [chip, clinical, query]);
 
+  const activeSession = useMemo(
+    () => visible.find((session) => session.id === activeId) ?? null,
+    [visible, activeId]
+  );
+
+  useEffect(() => {
+    if (activeId && !visible.some((session) => session.id === activeId)) {
+      setActiveId(null);
+      setSheetOpen(false);
+    }
+  }, [visible, activeId]);
+
+  useEffect(() => {
+    if (!sheetOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setSheetOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [sheetOpen]);
+
   function reserve(session: Session) {
     if (booked.includes(session.id)) return;
     if (credits < session.priceCredits) return;
     const ok = onBook(session.priceCredits);
     if (ok) setBooked((prev) => [...prev, session.id]);
+  }
+
+  function selectPin(id: string) {
+    setActiveId(id);
+  }
+
+  /** List selection syncs the pin and shows Preview Card (never auto-opens the sheet). */
+  function selectFromList(id: string) {
+    setActiveId(id);
+    setSheetOpen(false);
+  }
+
+  function clearSelection() {
+    setActiveId(null);
+    setSheetOpen(false);
+  }
+
+  function closeSheet() {
+    setSheetOpen(false);
   }
 
   const searchProps = {
@@ -293,6 +344,14 @@ export function ExploreView({
     focused,
     setFocused,
   };
+
+  const showPreview = Boolean(activeSession && !sheetOpen);
+  const reservedActive = activeSession
+    ? booked.includes(activeSession.id)
+    : false;
+  const insufficientActive = activeSession
+    ? credits < activeSession.priceCredits && !reservedActive
+    : false;
 
   return (
     <div className="space-y-5">
@@ -339,13 +398,43 @@ export function ExploreView({
         </>
       )}
 
-      <MapCanvas
-        sessions={visible}
-        activeId={activeId}
-        setActiveId={setActiveId}
-        expanded={mapExpanded}
-        onExpand={() => setMapExpanded(true)}
-      />
+      <div className="relative">
+        <MapCanvas
+          sessions={visible}
+          activeId={activeId}
+          onSelectPin={selectPin}
+          expanded={mapExpanded}
+          onExpand={() => setMapExpanded(true)}
+          hideExpandHint={showPreview && !mapExpanded}
+        />
+
+        {showPreview && activeSession ? (
+          <div
+            className={cn(
+              "pointer-events-none z-[56]",
+              mapExpanded
+                ? "fixed inset-x-4 bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.75rem))] mx-auto max-w-md"
+                : "absolute inset-x-3 bottom-3"
+            )}
+          >
+            <MapSessionPreview
+              session={activeSession}
+              onOpenDetails={() => setSheetOpen(true)}
+              onClose={clearSelection}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      {sheetOpen && activeSession ? (
+        <MapSessionSheet
+          session={activeSession}
+          reserved={reservedActive}
+          insufficientCredits={insufficientActive}
+          onReserve={() => reserve(activeSession)}
+          onClose={closeSheet}
+        />
+      ) : null}
 
       {mapExpanded && (
         <div className="pointer-events-none fixed inset-0 z-[55]">
@@ -386,66 +475,36 @@ export function ExploreView({
       )}
 
       {!mapExpanded && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="flex items-end justify-between gap-3 px-1">
-            <div>
-              <div className="flex items-center gap-1.5 text-[#A3E635]">
-                <Sparkles className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-medium uppercase tracking-wider">
-                  Curado para ti
-                </span>
-              </div>
-              <h2 className="mt-1 text-xl font-semibold tracking-tight text-white">
-                Entrenamientos Recomendados
+            <div className="min-w-0">
+              <h2 className="text-xl font-semibold tracking-tight text-fg">
+                Sesiones disponibles
               </h2>
+              <p className="mt-1 text-sm text-fg-subtle">
+                Según tu búsqueda y filtros
+              </p>
             </div>
-            <p className="pb-0.5 text-xs text-zinc-600">{visible.length}</p>
+            <Badge variant="default" size="md" className="shrink-0">
+              {visible.length}
+            </Badge>
           </div>
 
           {visible.map((session) => {
             const reserved = booked.includes(session.id);
-            const short = credits < session.priceCredits && !reserved;
+            const insufficientCredits =
+              credits < session.priceCredits && !reserved;
+
             return (
-              <article
+              <SessionCard
                 key={session.id}
-                className={`rounded-[28px] border bg-[#0A0A0A] p-5 transition ${
-                  activeId === session.id
-                    ? "border-[#A3E635]"
-                    : "border-white/10"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <h3 className="text-lg font-semibold tracking-tight text-white">
-                      {session.title}
-                    </h3>
-                    <p className="mt-1 text-sm text-zinc-500">
-                      {session.trainer}
-                    </p>
-                  </div>
-                  <p className="text-2xl font-semibold tracking-tight text-[#A3E635]">
-                    {session.priceCredits}
-                    <span className="ml-1 text-sm font-medium text-[#A3E635]/70">
-                      Cr
-                    </span>
-                  </p>
-                </div>
-                <div className="mt-4 flex items-center justify-between text-sm text-zinc-400">
-                  <span>{session.time}</span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" />
-                    {session.place}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  disabled={reserved || short}
-                  onClick={() => reserve(session)}
-                  className="mt-4 h-12 w-full rounded-2xl bg-[#A3E635] text-sm font-semibold text-black transition active:scale-[0.99] disabled:bg-zinc-800 disabled:text-zinc-500"
-                >
-                  {reserved ? "Reservada" : short ? "Sin créditos" : "Reservar"}
-                </button>
-              </article>
+                session={session}
+                reserved={reserved}
+                insufficientCredits={insufficientCredits}
+                selected={activeId === session.id}
+                onSelect={() => selectFromList(session.id)}
+                onReserve={() => reserve(session)}
+              />
             );
           })}
         </div>
