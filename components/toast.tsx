@@ -1,15 +1,41 @@
 "use client";
 
 import { useEffect } from "react";
-import { AlertTriangle, CheckCircle2, X } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/cn";
 
-export type ToastTone = "urgent" | "success" | "info";
+/**
+ * Canonical tones: `info` | `success` | `danger`.
+ * `urgent` is a deprecated alias of `danger` (kept for existing callers).
+ */
+export type ToastTone = "info" | "success" | "danger" | "urgent";
 
 export type ToastMessage = {
   id: string;
   title: string;
   body?: string;
   tone?: ToastTone;
+};
+
+type ResolvedTone = "info" | "success" | "danger";
+
+function resolveTone(tone?: ToastTone): ResolvedTone {
+  if (tone === "success") return "success";
+  if (tone === "danger" || tone === "urgent") return "danger";
+  return "info";
+}
+
+const toneClasses: Record<ResolvedTone, string> = {
+  info: "border-border",
+  success: "border-border-brand",
+  danger: "border-danger-muted",
+};
+
+const toneIconClasses: Record<ResolvedTone, string> = {
+  info: "text-fg-muted",
+  success: "text-brand",
+  danger: "text-danger",
 };
 
 export function ToastStack({
@@ -40,40 +66,41 @@ function ToastItem({
     return () => window.clearTimeout(timer);
   }, [toast.id, onDismiss]);
 
-  const tone = toast.tone ?? "info";
-  const border =
-    tone === "urgent"
-      ? "border-[#A3E635]"
-      : tone === "success"
-        ? "border-emerald-500/50"
-        : "border-white/15";
+  const tone = resolveTone(toast.tone);
+  const Icon =
+    tone === "danger" ? AlertTriangle : tone === "success" ? CheckCircle2 : Info;
 
   return (
     <div
-      className={`pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-[20px] border ${border} bg-[#0A0A0A]/95 px-4 py-3 shadow-[0_16px_48px_rgba(0,0,0,0.55)] backdrop-blur-md animate-[slideDown_0.35s_ease-out]`}
-      role="status"
-    >
-      {tone === "urgent" ? (
-        <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#A3E635]" />
-      ) : (
-        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#A3E635]" />
+      className={cn(
+        "pointer-events-auto flex w-full max-w-md items-start gap-3 rounded-xl border bg-bg-elevated/95 px-4 py-3 shadow-card backdrop-blur-md animate-slide-down",
+        toneClasses[tone]
       )}
+      role={tone === "danger" ? "alert" : "status"}
+    >
+      <Icon
+        className={cn("mt-0.5 h-5 w-5 shrink-0", toneIconClasses[tone])}
+        aria-hidden
+      />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-white">{toast.title}</p>
-        {toast.body && (
-          <p className="mt-0.5 text-xs leading-relaxed text-zinc-400">
+        <p className="text-sm font-semibold text-fg">{toast.title}</p>
+        {toast.body ? (
+          <p className="mt-0.5 text-xs leading-relaxed text-fg-muted">
             {toast.body}
           </p>
-        )}
+        ) : null}
       </div>
-      <button
+      <Button
         type="button"
-        aria-label="Cerrar alerta"
+        variant="ghost"
+        size="sm"
+        iconOnly
+        aria-label="Cerrar notificación"
         onClick={() => onDismiss(toast.id)}
-        className="rounded-full p-1 text-zinc-500 transition hover:text-white"
+        className="shrink-0"
       >
         <X className="h-4 w-4" />
-      </button>
+      </Button>
     </div>
   );
 }
