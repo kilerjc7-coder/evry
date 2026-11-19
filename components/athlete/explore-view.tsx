@@ -37,19 +37,21 @@ function FilterPanel({
   if (!open) return null;
 
   return (
-    <div className="animate-[fadeSlide_0.25s_ease-out] rounded-[24px] border border-white/10 bg-[#0A0A0A]/95 p-4 backdrop-blur-md">
-      <div className="mb-3 flex items-center justify-between">
-        <p className="text-sm font-semibold text-white">Filtros</p>
+    <div className="animate-[fadeSlide_0.25s_ease-out] rounded-2xl border border-border bg-bg-elevated/95 p-3 backdrop-blur-md">
+      <div className="mb-2.5 flex items-center justify-between px-0.5">
+        <p className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
+          Filtros
+        </p>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full p-1 text-zinc-500 hover:text-white"
+          className="rounded-full p-1 text-fg-subtle transition hover:text-fg"
           aria-label="Cerrar filtros"
         >
-          <X className="h-4 w-4" />
+          <X className="h-3.5 w-3.5" />
         </button>
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         {CHIPS.map((item) => {
           const Icon = item.icon;
           const selected = chip === item.id;
@@ -58,13 +60,14 @@ function FilterPanel({
               key={item.id}
               type="button"
               onClick={() => setChip(selected ? null : item.id)}
-              className={`flex items-center gap-2.5 rounded-2xl px-3 py-3 text-left text-sm font-medium transition ${
+              className={cn(
+                "flex items-center gap-2 rounded-xl px-2.5 py-2.5 text-left text-xs font-medium transition",
                 selected
-                  ? "bg-[#A3E635] text-black"
-                  : "border border-white/10 bg-black/40 text-zinc-300 hover:border-[#A3E635]/40"
-              }`}
+                  ? "bg-brand text-on-brand"
+                  : "border border-border bg-surface/80 text-fg-muted hover:border-border-brand hover:text-fg"
+              )}
             >
-              <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
+              <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={2} />
               <span className="leading-tight">{item.label}</span>
             </button>
           );
@@ -104,19 +107,47 @@ function MapCanvas({
       }}
       aria-label={expanded ? "Mapa expandido" : "Expandir mapa"}
       className={cn(
-        "relative w-full overflow-hidden border border-border bg-[#07110c] text-left",
+        "relative w-full overflow-hidden border border-border bg-[#060a08] text-left",
+        /* Desktop: always fills the map column; never goes fixed/fullscreen. */
+        "lg:h-full lg:min-h-0 lg:cursor-default lg:rounded-2xl lg:border-border-strong",
         expanded
-          ? `fixed inset-x-0 bottom-0 z-50 ${MAP_EXPANDED_TOP} ${MAP_EXPANDED_HEIGHT} rounded-none border-0`
-          : "h-[38vh] min-h-56 cursor-pointer rounded-2xl"
+          ? `fixed inset-x-0 bottom-0 z-50 ${MAP_EXPANDED_TOP} ${MAP_EXPANDED_HEIGHT} rounded-none border-0 lg:static lg:inset-auto lg:z-auto lg:h-full lg:border lg:rounded-2xl`
+          : "h-[38vh] min-h-56 cursor-pointer rounded-2xl lg:h-full lg:min-h-0"
       )}
     >
-      <div className="absolute inset-0 opacity-30 bg-[radial-gradient(var(--evry-brand)_1px,transparent_1px)] [background-size:22px_22px]" />
-      <div className="absolute left-[18%] top-[22%] h-24 w-28 rounded-full bg-brand-muted blur-sm" />
-      <div className="absolute bottom-[12%] left-[8%] h-32 w-40 rounded-full bg-brand-subtle blur-sm" />
-      <div className="absolute right-[-8%] top-[30%] h-40 w-24 rotate-12 rounded-full bg-surface-overlay" />
+      {/* Simulated zone field — abstract depth, not real cartography */}
+      <div
+        className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,#0c1610_0%,#050505_62%)]"
+        aria-hidden
+      />
+      <div
+        className="absolute inset-0 opacity-[0.22] bg-[linear-gradient(rgba(163,230,53,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(163,230,53,0.07)_1px,transparent_1px)] [background-size:48px_48px]"
+        aria-hidden
+      />
+      <div
+        className="absolute left-[12%] top-[18%] h-36 w-44 rounded-[40%] bg-brand-subtle blur-2xl"
+        aria-hidden
+      />
+      <div
+        className="absolute bottom-[8%] left-[22%] h-40 w-52 rounded-[45%] bg-[#0a1a12] blur-xl"
+        aria-hidden
+      />
+      <div
+        className="absolute right-[6%] top-[28%] h-48 w-36 rotate-12 rounded-[40%] bg-surface-overlay/80 blur-2xl"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.55)_100%)]"
+        aria-hidden
+      />
+
+      <div className="pointer-events-none absolute top-3 left-3 z-20 flex items-center gap-1.5 rounded-full border border-border bg-bg/70 px-2.5 py-1 text-[10px] font-medium tracking-wide text-fg-subtle uppercase backdrop-blur-sm max-lg:hidden">
+        <MapPin className="h-3 w-3 text-brand" aria-hidden />
+        Zona simulada
+      </div>
 
       {!expanded && !hideExpandHint ? (
-        <span className="absolute bottom-3 left-3 z-20 flex items-center gap-1.5 rounded-full border border-border bg-bg/50 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-sm">
+        <span className="absolute bottom-3 left-3 z-20 hidden items-center gap-1.5 rounded-full border border-border bg-bg/50 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-sm max-lg:flex">
           <MapPin className="h-3 w-3 text-brand" aria-hidden />
           Toca para expandir
         </span>
@@ -136,18 +167,30 @@ function MapCanvas({
               event.stopPropagation();
               onSelectPin(session.id);
             }}
-            className="absolute z-10 -translate-x-1/2 -translate-y-1/2 focus-visible:outline-none focus-visible:shadow-[var(--evry-ring-focus)]"
+            className={cn(
+              "absolute -translate-x-1/2 -translate-y-1/2 focus-visible:outline-none focus-visible:shadow-[var(--evry-ring-focus)]",
+              selected ? "z-20" : "z-10"
+            )}
             style={{ left: `${left}%`, top: `${top}%` }}
           >
-            <span
-              className={cn(
-                "block rounded-full px-2.5 py-1 text-xs font-semibold shadow-card motion-safe:transition motion-safe:duration-fast motion-reduce:transition-none",
-                selected
-                  ? "scale-110 bg-fg text-on-brand ring-2 ring-brand"
-                  : "bg-brand text-on-brand"
-              )}
-            >
-              {session.priceCredits} Cr
+            <span className="flex flex-col items-center gap-0.5">
+              <span
+                className={cn(
+                  "rounded-full px-2.5 py-1 text-[11px] font-bold tracking-tight shadow-card motion-safe:transition motion-safe:duration-fast motion-reduce:transition-none",
+                  selected
+                    ? "scale-110 bg-fg text-on-brand ring-2 ring-brand ring-offset-2 ring-offset-[#060a08]"
+                    : "bg-brand text-on-brand hover:bg-brand-hover"
+                )}
+              >
+                {session.priceCredits} Cr
+              </span>
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rotate-45 rounded-[1px]",
+                  selected ? "bg-fg" : "bg-brand"
+                )}
+                aria-hidden
+              />
             </span>
           </button>
         );
@@ -215,6 +258,17 @@ export function ExploreView({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [sheetOpen]);
 
+  /** Desktop never uses the mobile fullscreen-map mode. */
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    function syncDesktop() {
+      if (mq.matches) setMapExpanded(false);
+    }
+    syncDesktop();
+    mq.addEventListener("change", syncDesktop);
+    return () => mq.removeEventListener("change", syncDesktop);
+  }, []);
+
   function reserve(session: Session) {
     if (booked.includes(session.id)) return;
     if (credits < session.priceCredits) return;
@@ -241,6 +295,11 @@ export function ExploreView({
     setSheetOpen(false);
   }
 
+  function expandMap() {
+    if (window.matchMedia("(min-width: 1024px)").matches) return;
+    setMapExpanded(true);
+  }
+
   const searchProps = {
     query,
     setQuery,
@@ -259,93 +318,168 @@ export function ExploreView({
     ? credits < activeSession.priceCredits && !reservedActive
     : false;
 
+  const filtersControl = (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setFiltersOpen((v) => !v)}
+        className={cn(
+          "flex h-11 w-full items-center justify-center gap-2 rounded-2xl border text-sm font-semibold transition",
+          filtersOpen || chip
+            ? "border-border-brand bg-brand-muted text-brand"
+            : "border-border bg-bg-elevated text-fg-muted hover:border-border-strong hover:text-fg"
+        )}
+      >
+        <Filter className="h-4 w-4" />
+        Añadir filtros
+        {chip ? (
+          <span className="ml-0.5 rounded-full bg-brand px-2 py-0.5 text-[10px] font-bold text-on-brand">
+            1
+          </span>
+        ) : null}
+      </button>
+      <FilterPanel
+        chip={chip}
+        setChip={setChip}
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+      />
+    </div>
+  );
+
+  const sessionList = (
+    <>
+      <div className="flex items-end justify-between gap-3 px-0.5 pb-1">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold tracking-tight text-fg lg:text-lg">
+            Sesiones disponibles
+          </h2>
+          <p className="mt-0.5 text-xs text-fg-subtle lg:text-sm">
+            Según tu búsqueda y filtros
+          </p>
+        </div>
+        <Badge variant="default" size="sm" className="shrink-0">
+          {visible.length}
+        </Badge>
+      </div>
+
+      {visible.map((session) => {
+        const reserved = booked.includes(session.id);
+        const insufficientCredits =
+          credits < session.priceCredits && !reserved;
+
+        return (
+          <SessionCard
+            key={session.id}
+            session={session}
+            reserved={reserved}
+            insufficientCredits={insufficientCredits}
+            selected={activeId === session.id}
+            onSelect={() => selectFromList(session.id)}
+            onReserve={() => reserve(session)}
+          />
+        );
+      })}
+    </>
+  );
+
   return (
-    <div className="space-y-5">
-      {!mapExpanded && (
-        <>
+    <div
+      className={cn(
+        /* Grid areas avoid `display: contents` (WebKit absolute containing-block bugs).
+           Mobile: search → map → list. Desktop: 380px sidebar stack + map column. */
+        "grid grid-cols-1 gap-5 [grid-template-areas:'search'_'map'_'list']",
+        "lg:h-full lg:min-h-0 lg:flex-1 lg:gap-6 lg:overflow-hidden",
+        "lg:grid-cols-[380px_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)]",
+        "lg:[grid-template-areas:'search_map'_'list_map']"
+      )}
+    >
+      {!mapExpanded ? (
+        <div
+          className={cn(
+            "[grid-area:search] space-y-5",
+            "lg:relative lg:z-10 lg:space-y-3"
+          )}
+        >
           <SearchBox {...searchProps} />
           {clinical && (
-            <label className="-mt-2 flex items-center gap-2 px-2 text-xs text-zinc-500">
+            <label className="-mt-2 flex items-center gap-2 px-2 text-xs text-fg-subtle lg:mt-0">
               <input
                 type="checkbox"
                 checked={consent}
                 onChange={(event) => setConsent(event.target.checked)}
-                className="accent-[#A3E635]"
+                className="accent-brand"
               />
               Usar esta descripción para recomendarte sesiones
             </label>
           )}
-
-          <div className="space-y-3">
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((v) => !v)}
-              className={`flex h-12 w-full items-center justify-center gap-2 rounded-2xl border text-sm font-semibold transition ${
-                filtersOpen || chip
-                  ? "border-[#A3E635]/50 bg-[#A3E635]/10 text-[#A3E635]"
-                  : "border-white/10 bg-[#0A0A0A] text-zinc-300 hover:border-white/20"
-              }`}
-            >
-              <Filter className="h-4 w-4" />
-              Añadir filtros
-              {chip && (
-                <span className="ml-1 rounded-full bg-[#A3E635] px-2 py-0.5 text-[10px] font-bold text-black">
-                  1
-                </span>
-              )}
-            </button>
-            <FilterPanel
-              chip={chip}
-              setChip={setChip}
-              open={filtersOpen}
-              onClose={() => setFiltersOpen(false)}
-            />
-          </div>
-        </>
-      )}
-
-      <div className="relative">
-        <MapCanvas
-          sessions={visible}
-          activeId={activeId}
-          onSelectPin={selectPin}
-          expanded={mapExpanded}
-          onExpand={() => setMapExpanded(true)}
-          hideExpandHint={showPreview && !mapExpanded}
-        />
-
-        {showPreview && activeSession ? (
-          <div
-            className={cn(
-              "pointer-events-none z-[56]",
-              mapExpanded
-                ? "fixed inset-x-4 bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.75rem))] mx-auto max-w-md"
-                : "absolute inset-x-3 bottom-3"
-            )}
-          >
-            <MapSessionPreview
-              session={activeSession}
-              onOpenDetails={() => setSheetOpen(true)}
-              onClose={clearSelection}
-            />
-          </div>
-        ) : null}
-      </div>
-
-      {sheetOpen && activeSession ? (
-        <MapSessionSheet
-          session={activeSession}
-          reserved={reservedActive}
-          insufficientCredits={insufficientActive}
-          onReserve={() => reserve(activeSession)}
-          onClose={closeSheet}
-        />
+          {filtersControl}
+        </div>
       ) : null}
 
-      {mapExpanded && (
+      {!mapExpanded ? (
         <div
           className={cn(
-            "pointer-events-none fixed inset-x-0 bottom-0 z-[55]",
+            "[grid-area:list] min-h-0",
+            "lg:relative lg:z-10 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden"
+          )}
+        >
+          {/* overscroll-contain: keep wheel inside the list once it is a real scrollport */}
+          <div className="space-y-3 lg:min-h-0 lg:flex-1 lg:space-y-3 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+            {sessionList}
+          </div>
+        </div>
+      ) : null}
+
+      <div
+        className={cn(
+          "[grid-area:map] relative z-0 min-h-0 w-full",
+          "lg:z-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden"
+        )}
+      >
+        <div className="relative min-h-0 w-full min-w-0 lg:h-full lg:min-h-0 lg:flex-1">
+          <MapCanvas
+            sessions={visible}
+            activeId={activeId}
+            onSelectPin={selectPin}
+            expanded={mapExpanded}
+            onExpand={expandMap}
+            hideExpandHint={showPreview && !mapExpanded}
+          />
+
+          {showPreview && activeSession ? (
+            <div
+              className={cn(
+                "pointer-events-none z-[56]",
+                mapExpanded
+                  ? "fixed inset-x-4 bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.75rem))] mx-auto max-w-md lg:absolute lg:inset-x-3 lg:bottom-3 lg:max-w-none"
+                  : "absolute inset-x-3 bottom-3"
+              )}
+            >
+              <MapSessionPreview
+                session={activeSession}
+                onOpenDetails={() => setSheetOpen(true)}
+                onClose={clearSelection}
+              />
+            </div>
+          ) : null}
+
+          {sheetOpen && activeSession ? (
+            <MapSessionSheet
+              session={activeSession}
+              reserved={reservedActive}
+              insufficientCredits={insufficientActive}
+              onReserve={() => reserve(activeSession)}
+              onClose={closeSheet}
+            />
+          ) : null}
+        </div>
+      </div>
+
+      {mapExpanded ? (
+        <div
+          className={cn(
+            "pointer-events-none fixed inset-x-0 bottom-0 z-[55] lg:hidden",
             MAP_EXPANDED_TOP
           )}
         >
@@ -385,43 +519,7 @@ export function ExploreView({
             />
           </div>
         </div>
-      )}
-
-      {!mapExpanded && (
-        <div className="space-y-4">
-          <div className="flex items-end justify-between gap-3 px-1">
-            <div className="min-w-0">
-              <h2 className="text-xl font-semibold tracking-tight text-fg">
-                Sesiones disponibles
-              </h2>
-              <p className="mt-1 text-sm text-fg-subtle">
-                Según tu búsqueda y filtros
-              </p>
-            </div>
-            <Badge variant="default" size="md" className="shrink-0">
-              {visible.length}
-            </Badge>
-          </div>
-
-          {visible.map((session) => {
-            const reserved = booked.includes(session.id);
-            const insufficientCredits =
-              credits < session.priceCredits && !reserved;
-
-            return (
-              <SessionCard
-                key={session.id}
-                session={session}
-                reserved={reserved}
-                insufficientCredits={insufficientCredits}
-                selected={activeId === session.id}
-                onSelect={() => selectFromList(session.id)}
-                onReserve={() => reserve(session)}
-              />
-            );
-          })}
-        </div>
-      )}
+      ) : null}
     </div>
   );
 }

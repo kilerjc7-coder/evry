@@ -36,7 +36,7 @@ export function MapSessionPreview({
       variant="elevated"
       padding="sm"
       className={cn(
-        "pointer-events-auto w-full shadow-card backdrop-blur-md",
+        "pointer-events-auto isolate w-full overflow-hidden border-border-strong bg-bg-elevated/95 shadow-card backdrop-blur-md",
         "motion-safe:animate-fade-slide motion-reduce:animate-none",
         className
       )}
@@ -44,14 +44,14 @@ export function MapSessionPreview({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           {category ? (
-            <Badge variant="brand" size="sm" className="mb-2">
+            <Badge variant="brand" size="sm" className="relative mb-1.5">
               {category}
             </Badge>
           ) : null}
           <p className="truncate text-base font-semibold tracking-tight text-fg">
             {session.title}
           </p>
-          <p className="mt-0.5 truncate text-sm text-fg-muted">
+          <p className="mt-0.5 truncate text-xs text-fg-muted">
             {session.trainer}
           </p>
         </div>

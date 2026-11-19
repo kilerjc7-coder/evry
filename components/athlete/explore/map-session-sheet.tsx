@@ -47,11 +47,20 @@ export function MapSessionSheet({
       : "Reservar";
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[60] flex flex-col justify-end">
+    <div
+      className={cn(
+        "pointer-events-none z-[60] flex flex-col justify-end",
+        /* Mobile: viewport overlay. Desktop: confined to the map column. */
+        "fixed inset-0 lg:absolute lg:inset-0 lg:z-20 lg:justify-end"
+      )}
+    >
       <button
         type="button"
         aria-label="Cerrar detalles de sesión"
-        className="pointer-events-auto absolute inset-0 bg-bg/50 motion-safe:transition-opacity motion-safe:duration-base motion-reduce:transition-none"
+        className={cn(
+          "pointer-events-auto absolute inset-0 bg-bg/50 motion-safe:transition-opacity motion-safe:duration-base motion-reduce:transition-none",
+          "lg:rounded-2xl lg:bg-bg/35"
+        )}
         onClick={onClose}
       />
 
@@ -61,26 +70,33 @@ export function MapSessionSheet({
         aria-labelledby="map-session-sheet-title"
         className={cn(
           "pointer-events-auto relative z-10 mx-auto w-full max-w-md rounded-t-2xl border border-border border-b-0 bg-surface shadow-card",
-          "px-5 pt-3",
-          "pb-[max(1.25rem,env(safe-area-inset-bottom))]",
-          "motion-safe:animate-fade-slide motion-reduce:animate-none"
+          "px-5 pt-3 pb-5",
+          /*
+            Mobile: lift above fixed BottomNav (≈4.1–5.5rem chrome).
+            Same offset language as expanded MapSessionPreview — safe-area is
+            included once in the bottom offset, not again in pb.
+          */
+          "mb-[max(5.5rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))]",
+          "motion-safe:animate-fade-slide motion-reduce:animate-none",
+          /* Desktop: compact docked panel — leaves map pins readable above */
+          "lg:mx-4 lg:mb-4 lg:max-h-[min(22rem,48%)] lg:max-w-none lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-border-strong lg:bg-bg-elevated/95 lg:px-4 lg:pt-4 lg:pb-4 lg:backdrop-blur-md"
         )}
       >
         <div
-          className="mx-auto mb-4 h-1 w-10 rounded-full bg-border-strong"
+          className="mx-auto mb-4 h-1 w-10 rounded-full bg-border-strong lg:hidden"
           aria-hidden
         />
 
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             {category ? (
-              <Badge variant="brand" size="sm" className="mb-2">
+              <Badge variant="brand" size="sm" className="relative mb-2">
                 {category}
               </Badge>
             ) : null}
             <h2
               id="map-session-sheet-title"
-              className="text-xl font-semibold tracking-tight text-fg"
+              className="text-xl font-semibold tracking-tight text-fg lg:text-lg"
             >
               {session.title}
             </h2>
@@ -97,7 +113,7 @@ export function MapSessionSheet({
           </Button>
         </div>
 
-        <div className="mt-4 flex items-center justify-between gap-3">
+        <div className="mt-3 flex items-center justify-between gap-3 lg:mt-3.5">
           <div className="flex min-w-0 items-center gap-2.5">
             <Avatar
               size="sm"
@@ -108,30 +124,30 @@ export function MapSessionSheet({
               {session.trainer}
             </p>
           </div>
-          <p className="shrink-0 text-2xl font-semibold tracking-tight text-brand">
+          <p className="shrink-0 text-2xl font-semibold tracking-tight text-brand lg:text-xl">
             {session.priceCredits}
             <span className="ml-1 text-sm font-medium text-brand/70">Cr</span>
           </p>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-fg-subtle">
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-fg-subtle lg:mt-3 lg:gap-x-3 lg:text-xs">
           <span className="inline-flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5 text-brand" aria-hidden />
+            <Clock className="h-3.5 w-3.5 text-brand lg:h-3 lg:w-3" aria-hidden />
             {session.time}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5 text-brand" aria-hidden />
+            <MapPin className="h-3.5 w-3.5 text-brand lg:h-3 lg:w-3" aria-hidden />
             {session.place}
           </span>
         </div>
 
         {session.cafyd ? (
-          <p className="mt-3 text-xs text-fg-faint">
+          <p className="mt-2.5 text-xs text-fg-faint">
             Dirigida por profesional CAFYD
           </p>
         ) : null}
 
-        <div className="mt-5">
+        <div className="mt-4 lg:mt-4">
           <Button
             type="button"
             variant="primary"

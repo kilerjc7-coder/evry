@@ -16,6 +16,7 @@ import { ExploreView } from "@/components/athlete/explore-view";
 import { LoyaltyView } from "@/components/athlete/loyalty-view";
 import { AthleteProfileView } from "@/components/athlete/profile-view";
 import { WalletView } from "@/components/athlete/wallet-view";
+import { cn } from "@/lib/cn";
 
 type AthleteTab =
   | "explorar"
@@ -37,7 +38,14 @@ export function AthleteApp({ onExit }: { onExit: () => void }) {
   const [credits, setCredits] = useState(350);
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white">
+    <div
+      className={cn(
+        "flex min-h-screen flex-col bg-[#050505] text-white",
+        /* Desktop: lock shell to the viewport so flex children get a definite
+           height under the header (avoids document growth from session cards). */
+        "lg:h-dvh lg:max-h-dvh lg:overflow-hidden"
+      )}
+    >
       <AppHeader
         onExit={onExit}
         notifications={ATHLETE_NOTIFICATIONS}
@@ -52,16 +60,36 @@ export function AthleteApp({ onExit }: { onExit: () => void }) {
         }
       />
 
-      <main className="mx-auto max-w-md px-4 pt-5 pb-28 lg:max-w-7xl lg:px-6 lg:pt-6 lg:pb-8">
+      {/*
+        Desktop: flex-1 + min-h-0 fills the space below the in-flow header.
+        Explore locks overflow; other tabs may scroll inside main.
+      */}
+      <main
+        className={cn(
+          "mx-auto w-full max-w-md px-4 pt-5",
+          /*
+            Mobile: clear fixed BottomNav.
+            Nav chrome ≈ pt-2 + icon/label column + border (~4.5–5.5rem) plus
+            its own env(safe-area-inset-bottom). pb-28 ignored the inset, so
+            CTAs could sit under the home indicator. Keep ≥7rem, grow with inset.
+            Desktop: lg:pb-8 replaces this (BottomNav is lg:hidden).
+          */
+          "pb-[max(7rem,calc(5.5rem+env(safe-area-inset-bottom,0px)))]",
+          "lg:flex lg:max-w-7xl lg:min-h-0 lg:flex-1 lg:flex-col lg:px-6 lg:pt-6 lg:pb-8",
+          tab === "explorar" ? "lg:overflow-hidden" : "lg:overflow-y-auto"
+        )}
+      >
         {tab === "explorar" && (
-          <ExploreView
-            credits={credits}
-            onBook={(price) => {
-              if (credits < price) return false;
-              setCredits((current) => current - price);
-              return true;
-            }}
-          />
+          <div className="lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
+            <ExploreView
+              credits={credits}
+              onBook={(price) => {
+                if (credits < price) return false;
+                setCredits((current) => current - price);
+                return true;
+              }}
+            />
+          </div>
         )}
         {tab === "reservas" && <BookingsView />}
         {tab === "monedero" && (

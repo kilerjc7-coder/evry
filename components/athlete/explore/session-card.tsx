@@ -63,14 +63,15 @@ export function SessionCard({
     : insufficientCredits
       ? "Sin créditos"
       : "Reservar";
+  const mark = trainerInitials(session.trainer);
 
   return (
     <Card
       variant={selected ? "elevated" : "default"}
       padding="none"
       className={cn(
-        "transition duration-fast ease-out",
-        selected && "shadow-brand-glow"
+        "isolate transition duration-fast ease-out",
+        selected && "border-border-brand shadow-brand-glow"
       )}
     >
       {/* Selectable region is a real button; reserve CTA stays outside to avoid nested buttons. */}
@@ -81,7 +82,8 @@ export function SessionCard({
         onClick={onSelect}
         className="w-full cursor-pointer text-left focus-visible:outline-none focus-visible:shadow-[var(--evry-ring-focus)]"
       >
-        <CardMedia className="relative h-52 w-full bg-surface-raised">
+        {/* relative + isolate + overflow: stable containing block for category badge (WebKit) */}
+        <CardMedia className="relative isolate h-36 w-full overflow-hidden bg-surface-raised lg:h-40">
           {imageSrc ? (
             <img
               src={imageSrc}
@@ -89,9 +91,19 @@ export function SessionCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="absolute inset-0 bg-surface-raised" aria-hidden>
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_20%,var(--evry-brand-subtle),transparent_55%)]" />
-              <div className="absolute inset-0 opacity-[0.07] bg-[radial-gradient(var(--evry-brand)_1px,transparent_1px)] [background-size:18px_18px]" />
+            <div
+              className="absolute inset-0 bg-surface-raised"
+              aria-hidden
+            >
+              <div className="absolute inset-0 bg-[linear-gradient(160deg,#121212_0%,#0a0a0a_55%,#101013_100%)]" />
+              <div className="absolute inset-0 opacity-[0.08] bg-[radial-gradient(var(--evry-brand)_1px,transparent_1px)] [background-size:16px_16px]" />
+              <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-bg/80 to-transparent" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-4xl font-semibold tracking-tight text-brand/25">
+                  {mark}
+                </span>
+              </div>
+              <div className="absolute top-0 left-0 h-full w-0.5 bg-brand/70" />
             </div>
           )}
 
@@ -99,33 +111,33 @@ export function SessionCard({
             <Badge
               variant="brand"
               size="sm"
-              className="absolute top-3 left-3 z-10"
+              className="absolute top-2.5 left-2.5 z-10"
             >
               {category}
             </Badge>
           ) : null}
         </CardMedia>
 
-        <div className="p-5 pb-0">
-          <CardHeader>
-            <div className="flex items-start justify-between gap-4">
-              <h3 className="min-w-0 text-xl font-semibold tracking-tight text-fg">
+        <div className="px-4 pt-3.5 pb-0">
+          <CardHeader className="gap-0">
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="min-w-0 text-lg font-semibold leading-snug tracking-tight text-fg">
                 {session.title}
               </h3>
-              <p className="shrink-0 text-2xl font-semibold tracking-tight text-brand">
+              <p className="shrink-0 pt-0.5 text-xl font-semibold tracking-tight text-brand">
                 {session.priceCredits}
-                <span className="ml-1 text-sm font-medium text-brand/70">
+                <span className="ml-0.5 text-xs font-medium text-brand/70">
                   Cr
                 </span>
               </p>
             </div>
           </CardHeader>
 
-          <CardContent className="mt-4 space-y-3">
-            <div className="flex items-center gap-2.5">
+          <CardContent className="mt-2.5 space-y-2">
+            <div className="flex items-center gap-2">
               <Avatar
                 size="sm"
-                fallback={trainerInitials(session.trainer)}
+                fallback={mark}
                 alt={session.trainer}
               />
               <p className="truncate text-sm font-medium text-fg-muted">
@@ -133,13 +145,13 @@ export function SessionCard({
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-fg-subtle">
-              <span className="inline-flex items-center gap-1.5">
-                <Clock className="h-3.5 w-3.5 text-brand" aria-hidden />
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle">
+              <span className="inline-flex items-center gap-1">
+                <Clock className="h-3 w-3 text-brand" aria-hidden />
                 {session.time}
               </span>
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="h-3.5 w-3.5 text-brand" aria-hidden />
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="h-3 w-3 text-brand" aria-hidden />
                 {session.place}
               </span>
             </div>
@@ -147,7 +159,7 @@ export function SessionCard({
         </div>
       </button>
 
-      <div className="p-5 pt-4">
+      <div className="px-4 pt-3 pb-4">
         <Button
           type="button"
           variant="primary"
