@@ -108,6 +108,7 @@ function MapCanvas({
   sessions,
   activeId,
   onSelectPin,
+  onEmptyClick,
   expanded,
   onExpand,
   hideExpandHint,
@@ -117,22 +118,27 @@ function MapCanvas({
   sessions: Session[];
   activeId: string | null;
   onSelectPin: (id: string) => void;
+  /** Empty map surface (not pins). Skipped while mobile map is still collapsed. */
+  onEmptyClick?: () => void;
   expanded: boolean;
   onExpand: () => void;
   hideExpandHint?: boolean;
   expandable: boolean;
 }) {
+  function handleCanvasClick() {
+    /* Collapsed mobile: first empty tap expands and keeps selection. */
+    if (expandable && !expanded) {
+      onExpand();
+      return;
+    }
+    onEmptyClick?.();
+  }
+
   return (
     <div
       role={expandable ? "button" : "region"}
       tabIndex={expandable ? 0 : undefined}
-      onClick={
-        expandable
-          ? () => {
-              if (!expanded) onExpand();
-            }
-          : undefined
-      }
+      onClick={handleCanvasClick}
       onKeyDown={
         expandable
           ? (event) => {
@@ -308,14 +314,21 @@ export function ExploreView({
     }
   }, [visible, activeId]);
 
+  /** One Escape listener: Sheet first (keep activeId → Preview), else clear Preview. */
   useEffect(() => {
-    if (!sheetOpen) return;
+    if (!sheetOpen && !activeId) return;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setSheetOpen(false);
+      if (event.key !== "Escape") return;
+      if (sheetOpen) {
+        setSheetOpen(false);
+        return;
+      }
+      setActiveId(null);
+      setSheetOpen(false);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [sheetOpen]);
+  }, [sheetOpen, activeId]);
 
   /** Desktop: embedded map region (no fullscreen expand). */
   useEffect(() => {
@@ -519,6 +532,13 @@ export function ExploreView({
             sessions={visible}
             activeId={activeId}
             onSelectPin={selectPin}
+            onEmptyClick={
+              sheetOpen
+                ? closeSheet
+                : showPreview
+                  ? clearSelection
+                  : undefined
+            }
             expanded={mapExpanded}
             onExpand={expandMap}
             hideExpandHint={showPreview && !mapExpanded}

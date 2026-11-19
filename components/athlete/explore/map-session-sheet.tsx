@@ -54,14 +54,14 @@ export function MapSessionSheet({
         "fixed inset-0 lg:absolute lg:inset-0 lg:z-20 lg:justify-end"
       )}
     >
-      <button
-        type="button"
-        aria-label="Cerrar detalles de sesión"
+      <div
         className={cn(
-          "pointer-events-auto absolute inset-0 bg-bg/50 motion-safe:transition-opacity motion-safe:duration-base motion-reduce:transition-none",
-          "lg:rounded-2xl lg:bg-bg/35"
+          /* Visual only: PE-none so map pins under the Sheet stay clickable. */
+          "pointer-events-none absolute inset-0 bg-bg/50 motion-safe:transition-opacity motion-safe:duration-base motion-reduce:transition-none",
+          /* Desktop: light scrim so map pins stay readable under the floating panel. */
+          "lg:rounded-2xl lg:bg-bg/15"
         )}
-        onClick={onClose}
+        aria-hidden
       />
 
       <div
@@ -79,8 +79,9 @@ export function MapSessionSheet({
           */
           "mb-[max(5.5rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))]",
           "motion-safe:animate-fade-slide motion-reduce:animate-none",
-          /* Desktop: compact docked panel — leaves map pins readable above */
-          "lg:mx-4 lg:mb-4 lg:max-h-[min(22rem,48%)] lg:max-w-none lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-border-strong lg:bg-bg-elevated/95 lg:px-4 lg:pt-4 lg:pb-4 lg:backdrop-blur-md"
+          /* Desktop: geometry (2.2.a) + glass surface aligned with Preview (2.2.c). */
+          "lg:mx-auto lg:mb-4 lg:w-full lg:max-w-md lg:self-center lg:max-h-[min(22rem,48%)] lg:overflow-y-auto lg:rounded-2xl",
+          "lg:border lg:border-white/10 lg:bg-bg/65 lg:px-3.5 lg:pt-3 lg:pb-3.5 lg:backdrop-blur-xl lg:shadow-md"
         )}
       >
         <div
@@ -88,16 +89,20 @@ export function MapSessionSheet({
           aria-hidden
         />
 
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-between gap-3 lg:gap-2.5">
           <div className="min-w-0">
             {category ? (
-              <Badge variant="brand" size="sm" className="relative mb-2">
+              <Badge
+                variant="brand"
+                size="sm"
+                className="relative mb-2 lg:mb-1"
+              >
                 {category}
               </Badge>
             ) : null}
             <h2
               id="map-session-sheet-title"
-              className="text-xl font-semibold tracking-tight text-fg lg:text-lg"
+              className="text-xl font-semibold tracking-tight text-fg lg:min-w-0 lg:truncate lg:text-base lg:leading-snug"
             >
               {session.title}
             </h2>
@@ -114,41 +119,43 @@ export function MapSessionSheet({
           </Button>
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-3 lg:mt-3.5">
-          <div className="flex min-w-0 items-center gap-2.5">
+        <div className="mt-3 flex items-center justify-between gap-3 lg:mt-2.5">
+          <div className="flex min-w-0 items-center gap-2.5 lg:gap-2">
             <Avatar
               size="sm"
               fallback={trainerInitials(session.trainer)}
               alt={session.trainer}
             />
-            <p className="truncate text-sm font-medium text-fg-muted">
+            <p className="truncate text-sm font-medium text-fg-muted lg:text-xs">
               {session.trainer}
             </p>
           </div>
-          <p className="shrink-0 text-2xl font-semibold tracking-tight text-brand lg:text-xl">
+          <p className="shrink-0 text-2xl font-semibold tracking-tight text-brand lg:text-lg">
             {session.priceCredits}
-            <span className="ml-1 text-sm font-medium text-brand/70">Cr</span>
+            <span className="ml-1 text-sm font-medium text-brand/70 lg:text-xs">
+              Cr
+            </span>
           </p>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-fg-subtle lg:mt-3 lg:gap-x-3 lg:text-xs">
-          <span className="inline-flex items-center gap-1.5">
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-fg-subtle lg:mt-2 lg:gap-x-2.5 lg:text-[11px]">
+          <span className="inline-flex items-center gap-1.5 lg:gap-1">
             <Clock className="h-3.5 w-3.5 text-brand lg:h-3 lg:w-3" aria-hidden />
             {session.time}
           </span>
-          <span className="inline-flex items-center gap-1.5">
+          <span className="inline-flex items-center gap-1.5 lg:gap-1">
             <MapPin className="h-3.5 w-3.5 text-brand lg:h-3 lg:w-3" aria-hidden />
             {session.place}
           </span>
         </div>
 
         {session.cafyd ? (
-          <p className="mt-2.5 text-xs text-fg-faint">
+          <p className="mt-2.5 text-xs text-fg-faint lg:mt-2 lg:text-[11px]">
             Dirigida por profesional CAFYD
           </p>
         ) : null}
 
-        <div className="mt-4 lg:mt-4">
+        <div className="mt-4 lg:mt-3">
           <Button
             type="button"
             variant="primary"
