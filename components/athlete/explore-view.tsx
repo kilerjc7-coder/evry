@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Filter,
   MapPin,
@@ -22,6 +22,27 @@ const MAP_EXPANDED_TOP =
 /** Explicit height — avoids collapse when leaving h-[38vh] (transition-all was zeroing layout). */
 const MAP_EXPANDED_HEIGHT =
   "h-[calc(100dvh-max(4.5rem,calc(env(safe-area-inset-top)+3.75rem)))]";
+
+/** Scroll only `container` so a list card enters view (nearest-edge). No-op if already visible. */
+function scrollChildIntoListContainer(
+  container: HTMLElement,
+  child: HTMLElement
+) {
+  const cRect = container.getBoundingClientRect();
+  const childRect = child.getBoundingClientRect();
+  if (childRect.top >= cRect.top && childRect.bottom <= cRect.bottom) return;
+
+  if (childRect.top < cRect.top) {
+    container.scrollBy({ top: childRect.top - cRect.top, behavior: "smooth" });
+    return;
+  }
+  if (childRect.bottom > cRect.bottom) {
+    container.scrollBy({
+      top: childRect.bottom - cRect.bottom,
+      behavior: "smooth",
+    });
+  }
+}
 
 function FilterPanel({
   chip,
@@ -251,6 +272,9 @@ export function ExploreView({
   const [booked, setBooked] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  /** Distinguishes map vs list selection without duplicating activeId. */
+  const selectionSourceRef = useRef<"map" | "list" | null>(null);
 
   const clinical = hasClinicalTerms(query);
 
@@ -305,6 +329,28 @@ export function ExploreView({
     return () => mq.removeEventListener("change", syncDesktop);
   }, []);
 
+  /** Desktop only: after a map pin select, bring the matching list card into view. */
+  useEffect(() => {
+    if (!isDesktop) {
+      selectionSourceRef.current = null;
+      return;
+    }
+    if (selectionSourceRef.current !== "map") {
+      selectionSourceRef.current = null;
+      return;
+    }
+    selectionSourceRef.current = null;
+    if (!activeId) return;
+
+    const container = listScrollRef.current;
+    if (!container) return;
+    const card = container.querySelector<HTMLElement>(
+      `[data-session-id="${CSS.escape(activeId)}"]`
+    );
+    if (!card) return;
+    scrollChildIntoListContainer(container, card);
+  }, [activeId, isDesktop]);
+
   function reserve(session: Session) {
     if (booked.includes(session.id)) return;
     if (credits < session.priceCredits) return;
@@ -313,11 +359,13 @@ export function ExploreView({
   }
 
   function selectPin(id: string) {
+    selectionSourceRef.current = "map";
     setActiveId(id);
   }
 
   /** List selection syncs the pin and shows Preview Card (never auto-opens the sheet). */
   function selectFromList(id: string) {
+    selectionSourceRef.current = "list";
     setActiveId(id);
     setSheetOpen(false);
   }
@@ -409,15 +457,16 @@ export function ExploreView({
           credits < session.priceCredits && !reserved;
 
         return (
-          <SessionCard
-            key={session.id}
-            session={session}
-            reserved={reserved}
-            insufficientCredits={insufficientCredits}
-            selected={activeId === session.id}
-            onSelect={() => selectFromList(session.id)}
-            onReserve={() => reserve(session)}
-          />
+          <div key={session.id} data-session-id={session.id}>
+            <SessionCard
+              session={session}
+              reserved={reserved}
+              insufficientCredits={insufficientCredits}
+              selected={activeId === session.id}
+              onSelect={() => selectFromList(session.id)}
+              onReserve={() => reserve(session)}
+            />
+          </div>
         );
       })}
     </>
@@ -481,8 +530,8 @@ export function ExploreView({
               className={cn(
                 "pointer-events-none z-[56]",
                 mapExpanded
-                  ? "fixed inset-x-4 bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.75rem))] mx-auto max-w-md lg:absolute lg:inset-x-3 lg:bottom-3 lg:max-w-none"
-                  : "absolute inset-x-3 bottom-3"
+                  ? "fixed inset-x-4 bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.75rem))] mx-auto max-w-md lg:absolute lg:inset-x-3 lg:bottom-3 lg:flex lg:max-w-none lg:justify-center"
+                  : "absolute inset-x-3 bottom-3 lg:flex lg:justify-center"
               )}
             >
               <MapSessionPreview
@@ -513,7 +562,10 @@ export function ExploreView({
           )}
         >
           {/* overscroll-contain: keep wheel inside the list once it is a real scrollport */}
-          <div className="space-y-3 lg:min-h-0 lg:flex-1 lg:space-y-3 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+          <div
+            ref={listScrollRef}
+            className="space-y-3 lg:min-h-0 lg:flex-1 lg:space-y-3 lg:overflow-y-auto lg:overscroll-contain lg:pr-1"
+          >
             {sessionList}
           </div>
         </div>

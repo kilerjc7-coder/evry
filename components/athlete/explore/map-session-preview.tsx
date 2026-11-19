@@ -38,25 +38,31 @@ export function MapSessionPreview({
       className={cn(
         "pointer-events-auto isolate w-full overflow-hidden border-border-strong bg-bg-elevated/95 shadow-card backdrop-blur-md",
         "motion-safe:animate-fade-slide motion-reduce:animate-none",
+        /* Desktop: compact floating card centered in the map column. */
+        "lg:max-w-md lg:p-3",
         className
       )}
     >
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex items-start justify-between gap-2 lg:gap-3">
         <div className="min-w-0 flex-1">
           {category ? (
-            <Badge variant="brand" size="sm" className="relative mb-1.5">
+            <Badge
+              variant="brand"
+              size="sm"
+              className="relative mb-1.5 lg:mb-1"
+            >
               {category}
             </Badge>
           ) : null}
-          <p className="truncate text-base font-semibold tracking-tight text-fg">
+          <p className="truncate text-base font-semibold tracking-tight text-fg lg:text-sm lg:leading-snug">
             {session.title}
           </p>
-          <p className="mt-0.5 truncate text-xs text-fg-muted">
+          <p className="mt-0.5 truncate text-xs text-fg-muted lg:text-[11px]">
             {session.trainer}
           </p>
         </div>
         <div className="flex shrink-0 items-start gap-1">
-          <p className="pt-0.5 text-lg font-semibold tracking-tight text-brand">
+          <p className="pt-0.5 text-lg font-semibold tracking-tight text-brand lg:text-base">
             {session.priceCredits}
             <span className="ml-0.5 text-xs font-medium text-brand/70">Cr</span>
           </p>
@@ -73,8 +79,8 @@ export function MapSessionPreview({
         </div>
       </div>
 
-      <CardContent className="mt-3">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle">
+      <CardContent className="mt-3 lg:mt-2">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-subtle lg:gap-x-2.5 lg:text-[11px]">
           <span className="inline-flex items-center gap-1">
             <Clock className="h-3 w-3 text-brand" aria-hidden />
             {session.time}
@@ -86,12 +92,13 @@ export function MapSessionPreview({
         </div>
       </CardContent>
 
-      <div className="mt-3">
+      <div className="mt-3 lg:mt-2.5 lg:flex lg:justify-end">
         <Button
           type="button"
           variant="secondary"
           size="sm"
           fullWidth
+          className="lg:w-auto lg:min-w-[7.5rem] lg:px-4"
           onClick={onOpenDetails}
         >
           Ver sesión
