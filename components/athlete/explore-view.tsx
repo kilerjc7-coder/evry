@@ -104,6 +104,86 @@ function FilterPanel({
   );
 }
 
+function pinCoordinates(session: Session) {
+  return {
+    left: Math.min(84, Math.max(16, session.x)),
+    top: Math.min(78, Math.max(28, session.y)),
+  };
+}
+
+/**
+ * Shared pin markers: visual on the canvas, or invisible hit-targets above the Sheet scrim.
+ */
+function MapSessionPins({
+  sessions,
+  activeId,
+  onSelectPin,
+  mode,
+  interactive = true,
+}: {
+  sessions: Session[];
+  activeId: string | null;
+  onSelectPin: (id: string) => void;
+  mode: "visual" | "hit";
+  /** When false, markers stay visible but do not receive pointer/keyboard (Sheet open). */
+  interactive?: boolean;
+}) {
+  return sessions.map((session) => {
+    const selected = activeId === session.id;
+    const { left, top } = pinCoordinates(session);
+    return (
+      <button
+        key={`${mode}-${session.id}`}
+        type="button"
+        /* Hit targets are pointer-only; keep them out of the a11y tree while Sheet is modal. */
+        tabIndex={mode === "hit" || !interactive ? -1 : undefined}
+        aria-hidden={mode === "hit" || !interactive ? true : undefined}
+        aria-pressed={
+          mode === "visual" && interactive ? selected : undefined
+        }
+        aria-label={
+          mode === "visual" && interactive
+            ? `${session.title}, ${session.priceCredits} créditos`
+            : undefined
+        }
+        onClick={(event) => {
+          event.stopPropagation();
+          if (!interactive) return;
+          onSelectPin(session.id);
+        }}
+        className={cn(
+          "absolute -translate-x-1/2 -translate-y-1/2 focus-visible:outline-none focus-visible:shadow-[var(--evry-ring-focus)]",
+          selected ? "z-20" : "z-10",
+          /* Hit layer parent is PE-none; buttons must re-enable hits above the scrim. */
+          mode === "hit" && "pointer-events-auto opacity-0",
+          !interactive && "pointer-events-none"
+        )}
+        style={{ left: `${left}%`, top: `${top}%` }}
+      >
+        <span className="flex flex-col items-center gap-0.5">
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-1 text-[11px] font-bold tracking-tight shadow-card motion-safe:transition motion-safe:duration-fast motion-reduce:transition-none",
+              selected
+                ? "scale-110 bg-fg text-on-brand ring-2 ring-brand ring-offset-2 ring-offset-[#060a08]"
+                : "bg-brand text-on-brand hover:bg-brand-hover"
+            )}
+          >
+            {session.priceCredits} Cr
+          </span>
+          <span
+            className={cn(
+              "h-1.5 w-1.5 rotate-45 rounded-[1px]",
+              selected ? "bg-fg" : "bg-brand"
+            )}
+            aria-hidden
+          />
+        </span>
+      </button>
+    );
+  });
+}
+
 function MapCanvas({
   sessions,
   activeId,
@@ -114,6 +194,8 @@ function MapCanvas({
   hideExpandHint,
   /** Mobile: canvas is an expand control. Desktop: non-interactive region. */
   expandable,
+  /** When Sheet is open, canvas pins are visual-only; hits come from the overlay layer. */
+  pinsInteractive = true,
 }: {
   sessions: Session[];
   activeId: string | null;
@@ -124,6 +206,7 @@ function MapCanvas({
   onExpand: () => void;
   hideExpandHint?: boolean;
   expandable: boolean;
+  pinsInteractive?: boolean;
 }) {
   function handleCanvasClick() {
     /* Collapsed mobile: first empty tap expands and keeps selection. */
@@ -214,48 +297,13 @@ function MapCanvas({
         </span>
       ) : null}
 
-      {sessions.map((session) => {
-        const selected = activeId === session.id;
-        const left = Math.min(84, Math.max(16, session.x));
-        const top = Math.min(78, Math.max(28, session.y));
-        return (
-          <button
-            key={session.id}
-            type="button"
-            aria-pressed={selected}
-            aria-label={`${session.title}, ${session.priceCredits} créditos`}
-            onClick={(event) => {
-              event.stopPropagation();
-              onSelectPin(session.id);
-            }}
-            className={cn(
-              "absolute -translate-x-1/2 -translate-y-1/2 focus-visible:outline-none focus-visible:shadow-[var(--evry-ring-focus)]",
-              selected ? "z-20" : "z-10"
-            )}
-            style={{ left: `${left}%`, top: `${top}%` }}
-          >
-            <span className="flex flex-col items-center gap-0.5">
-              <span
-                className={cn(
-                  "rounded-full px-2.5 py-1 text-[11px] font-bold tracking-tight shadow-card motion-safe:transition motion-safe:duration-fast motion-reduce:transition-none",
-                  selected
-                    ? "scale-110 bg-fg text-on-brand ring-2 ring-brand ring-offset-2 ring-offset-[#060a08]"
-                    : "bg-brand text-on-brand hover:bg-brand-hover"
-                )}
-              >
-                {session.priceCredits} Cr
-              </span>
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rotate-45 rounded-[1px]",
-                  selected ? "bg-fg" : "bg-brand"
-                )}
-                aria-hidden
-              />
-            </span>
-          </button>
-        );
-      })}
+      <MapSessionPins
+        sessions={sessions}
+        activeId={activeId}
+        onSelectPin={onSelectPin}
+        mode="visual"
+        interactive={pinsInteractive}
+      />
     </div>
   );
 }
@@ -532,17 +580,12 @@ export function ExploreView({
             sessions={visible}
             activeId={activeId}
             onSelectPin={selectPin}
-            onEmptyClick={
-              sheetOpen
-                ? closeSheet
-                : showPreview
-                  ? clearSelection
-                  : undefined
-            }
+            onEmptyClick={showPreview ? clearSelection : undefined}
             expanded={mapExpanded}
             onExpand={expandMap}
             hideExpandHint={showPreview && !mapExpanded}
             expandable={!isDesktop}
+            pinsInteractive={!sheetOpen}
           />
 
           {showPreview && activeSession ? (
@@ -558,6 +601,28 @@ export function ExploreView({
                 session={activeSession}
                 onOpenDetails={() => setSheetOpen(true)}
                 onClose={clearSelection}
+              />
+            </div>
+          ) : null}
+
+          {/*
+            D3.3.1: invisible pin hits above scrim (110), under panel (130).
+            Same coords/sessions as MapCanvas; map stays dimmed under the scrim.
+          */}
+          {sheetOpen ? (
+            <div
+              className={cn(
+                "pointer-events-none",
+                mapExpanded
+                  ? `fixed inset-x-0 bottom-0 z-[120] ${MAP_EXPANDED_TOP} ${MAP_EXPANDED_HEIGHT} lg:absolute lg:inset-0 lg:top-auto lg:bottom-auto lg:z-[25]`
+                  : "absolute inset-0 z-[120] lg:z-[25]"
+              )}
+            >
+              <MapSessionPins
+                sessions={visible}
+                activeId={activeId}
+                onSelectPin={selectPin}
+                mode="hit"
               />
             </div>
           ) : null}

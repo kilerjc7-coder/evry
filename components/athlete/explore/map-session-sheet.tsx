@@ -46,44 +46,50 @@ export function MapSessionSheet({
       ? "Sin créditos"
       : "Reservar";
 
+  /*
+    Stacking (D3.3.1): scrim z-110 dims + blocks fondo; pin hit-layer in ExploreView
+    sits at z-120; this panel shell is z-130. Desktop: scrim 20 → hits 25 → panel 30.
+  */
   return (
-    <div
-      className={cn(
-        /* Mobile: above AppHeader (z-[100]). Desktop: confined to the map column. */
-        "pointer-events-none z-[110] flex flex-col justify-end",
-        "fixed inset-0 lg:absolute lg:inset-0 lg:z-20 lg:justify-end"
-      )}
-    >
-      <div
+    <>
+      <button
+        type="button"
+        aria-label="Cerrar detalles de sesión"
         className={cn(
-          /* Visual only: PE-none so map pins under the Sheet stay clickable. */
-          "pointer-events-none absolute inset-0 bg-bg/50 motion-safe:transition-opacity motion-safe:duration-base motion-reduce:transition-none",
-          /* Desktop: light scrim so map pins stay readable under the floating panel. */
-          "lg:rounded-2xl lg:bg-bg/15"
+          "pointer-events-auto fixed inset-0 z-[110] bg-bg/50",
+          "motion-safe:transition-opacity motion-safe:duration-base motion-reduce:transition-none",
+          /* Desktop: light scrim confined to the map column shell. */
+          "lg:absolute lg:inset-0 lg:z-20 lg:rounded-2xl lg:bg-bg/15"
         )}
-        aria-hidden
+        onClick={onClose}
       />
 
       <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="map-session-sheet-title"
         className={cn(
-          /* Mobile: floating glass card (four corners, above BottomNav). */
-          "pointer-events-auto relative z-10 mx-4 w-[calc(100%-2rem)] max-w-md rounded-2xl border border-white/10 bg-bg/55 shadow-card backdrop-blur-xl",
-          "px-5 pt-3 pb-5",
-          /*
-            Mobile: lift above fixed BottomNav (≈4.1–5.5rem chrome).
-            Same offset language as expanded MapSessionPreview — safe-area is
-            included once in the bottom offset, not again in pb.
-          */
-          "mb-[max(5.5rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))]",
-          "motion-safe:animate-fade-slide motion-reduce:animate-none",
-          /* Desktop: geometry (2.2.a) + glass surface aligned with Preview (2.2.c). */
-          "lg:mx-auto lg:mb-4 lg:w-full lg:max-w-md lg:self-center lg:max-h-[min(22rem,48%)] lg:overflow-y-auto lg:rounded-2xl",
-          "lg:border lg:border-white/10 lg:bg-bg/65 lg:px-3.5 lg:pt-3 lg:pb-3.5 lg:backdrop-blur-xl lg:shadow-md"
+          "pointer-events-none fixed inset-0 z-[130] flex flex-col justify-end",
+          "lg:absolute lg:inset-0 lg:z-30 lg:justify-end"
         )}
       >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="map-session-sheet-title"
+          className={cn(
+            /* Mobile: floating glass card (four corners, above BottomNav). */
+            "pointer-events-auto relative mx-4 w-[calc(100%-2rem)] max-w-md rounded-2xl border border-white/10 bg-bg/55 shadow-card backdrop-blur-xl",
+            "px-5 pt-3 pb-5",
+            /*
+              Mobile: lift above fixed BottomNav (≈4.1–5.5rem chrome).
+              Same offset language as expanded MapSessionPreview — safe-area is
+              included once in the bottom offset, not again in pb.
+            */
+            "mb-[max(5.5rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))]",
+            "motion-safe:animate-fade-slide motion-reduce:animate-none",
+            /* Desktop: geometry (2.2.a) + glass surface aligned with Preview (2.2.c). */
+            "lg:mx-auto lg:mb-4 lg:w-full lg:max-w-md lg:self-center lg:max-h-[min(22rem,48%)] lg:overflow-y-auto lg:rounded-2xl",
+            "lg:border lg:border-white/10 lg:bg-bg/65 lg:px-3.5 lg:pt-3 lg:pb-3.5 lg:backdrop-blur-xl lg:shadow-md"
+          )}
+        >
         <div
           className="mx-auto mb-4 h-1 w-10 rounded-full bg-border-strong lg:hidden"
           aria-hidden
@@ -167,7 +173,8 @@ export function MapSessionSheet({
             {ctaLabel}
           </Button>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
