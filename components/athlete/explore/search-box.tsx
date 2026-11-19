@@ -460,11 +460,14 @@ export function SearchBox({
       */}
       <div
         className={cn(
-          "flex items-start overflow-hidden rounded-2xl border bg-surface/95 shadow-card backdrop-blur-md",
-          "motion-safe:transition-[height,border-color,box-shadow] motion-safe:duration-base motion-safe:ease-out motion-reduce:transition-none",
+          "flex items-start overflow-hidden rounded-2xl border shadow-card backdrop-blur-md",
+          /* Desktop: solid surface. Mobile: dark frosted glass over the map. */
+          "bg-surface/95",
+          "max-lg:border-white/10 max-lg:bg-bg/55 max-lg:shadow-none max-lg:backdrop-blur-xl",
+          "motion-safe:transition-[height,border-color,box-shadow,background-color] motion-safe:duration-base motion-safe:ease-out motion-reduce:transition-none",
           expanded
-            ? "h-24 border-border-brand shadow-brand-glow"
-            : "h-14 border-border"
+            ? "h-24 border-border-brand shadow-brand-glow max-lg:border-border-brand"
+            : "h-14 border-border max-lg:border-white/10"
         )}
       >
         <textarea

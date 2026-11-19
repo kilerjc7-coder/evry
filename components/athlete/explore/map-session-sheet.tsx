@@ -49,8 +49,8 @@ export function MapSessionSheet({
   return (
     <div
       className={cn(
-        "pointer-events-none z-[60] flex flex-col justify-end",
-        /* Mobile: viewport overlay. Desktop: confined to the map column. */
+        /* Mobile: above AppHeader (z-[100]). Desktop: confined to the map column. */
+        "pointer-events-none z-[110] flex flex-col justify-end",
         "fixed inset-0 lg:absolute lg:inset-0 lg:z-20 lg:justify-end"
       )}
     >
@@ -69,7 +69,8 @@ export function MapSessionSheet({
         aria-modal="true"
         aria-labelledby="map-session-sheet-title"
         className={cn(
-          "pointer-events-auto relative z-10 mx-auto w-full max-w-md rounded-t-2xl border border-border border-b-0 bg-surface shadow-card",
+          /* Mobile: floating glass card (four corners, above BottomNav). */
+          "pointer-events-auto relative z-10 mx-4 w-[calc(100%-2rem)] max-w-md rounded-2xl border border-white/10 bg-bg/55 shadow-card backdrop-blur-xl",
           "px-5 pt-3 pb-5",
           /*
             Mobile: lift above fixed BottomNav (≈4.1–5.5rem chrome).

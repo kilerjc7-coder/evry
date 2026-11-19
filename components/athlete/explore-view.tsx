@@ -37,7 +37,13 @@ function FilterPanel({
   if (!open) return null;
 
   return (
-    <div className="animate-[fadeSlide_0.25s_ease-out] rounded-2xl border border-border bg-bg-elevated/95 p-3 backdrop-blur-md">
+    <div
+      className={cn(
+        "animate-[fadeSlide_0.25s_ease-out] rounded-2xl border border-border bg-bg-elevated/95 p-3 backdrop-blur-md",
+        /* Mobile: match search frosted glass so the panel reads as one layer. */
+        "max-lg:border-white/10 max-lg:bg-bg/60 max-lg:backdrop-blur-xl"
+      )}
+    >
       <div className="mb-2.5 flex items-center justify-between px-0.5">
         <p className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
           Filtros
@@ -84,6 +90,8 @@ function MapCanvas({
   expanded,
   onExpand,
   hideExpandHint,
+  /** Mobile: canvas is an expand control. Desktop: non-interactive region. */
+  expandable,
 }: {
   sessions: Session[];
   activeId: string | null;
@@ -91,28 +99,48 @@ function MapCanvas({
   expanded: boolean;
   onExpand: () => void;
   hideExpandHint?: boolean;
+  expandable: boolean;
 }) {
   return (
     <div
-      role="button"
-      tabIndex={0}
-      onClick={() => {
-        if (!expanded) onExpand();
-      }}
-      onKeyDown={(event) => {
-        if (!expanded && (event.key === "Enter" || event.key === " ")) {
-          event.preventDefault();
-          onExpand();
-        }
-      }}
-      aria-label={expanded ? "Mapa expandido" : "Expandir mapa"}
+      role={expandable ? "button" : "region"}
+      tabIndex={expandable ? 0 : undefined}
+      onClick={
+        expandable
+          ? () => {
+              if (!expanded) onExpand();
+            }
+          : undefined
+      }
+      onKeyDown={
+        expandable
+          ? (event) => {
+              if (!expanded && (event.key === "Enter" || event.key === " ")) {
+                event.preventDefault();
+                onExpand();
+              }
+            }
+          : undefined
+      }
+      aria-label={
+        expandable
+          ? expanded
+            ? "Mapa expandido"
+            : "Expandir mapa"
+          : "Mapa de sesiones"
+      }
       className={cn(
         "relative w-full overflow-hidden border border-border bg-[#060a08] text-left",
         /* Desktop: always fills the map column; never goes fixed/fullscreen. */
         "lg:h-full lg:min-h-0 lg:cursor-default lg:rounded-2xl lg:border-border-strong",
         expanded
-          ? `fixed inset-x-0 bottom-0 z-50 ${MAP_EXPANDED_TOP} ${MAP_EXPANDED_HEIGHT} rounded-none border-0 lg:static lg:inset-auto lg:z-auto lg:h-full lg:border lg:rounded-2xl`
-          : "h-[38vh] min-h-56 cursor-pointer rounded-2xl lg:h-full lg:min-h-0"
+          ? /* z-50 < AppHeader z-[100]; MAP_EXPANDED_TOP keeps chrome below the header. */
+            `fixed inset-x-0 bottom-0 z-50 ${MAP_EXPANDED_TOP} ${MAP_EXPANDED_HEIGHT} rounded-none border-0 lg:static lg:inset-auto lg:z-auto lg:h-full lg:border lg:rounded-2xl`
+          : cn(
+              /* isolate + z-0: contain blur layers so they can’t paint over sticky AppHeader (iOS). */
+              "isolate z-0 h-[38vh] min-h-56 rounded-2xl max-lg:border-transparent lg:h-full lg:min-h-0",
+              expandable && "cursor-pointer"
+            )
       )}
     >
       {/* Simulated zone field — abstract depth, not real cartography */}
@@ -121,7 +149,13 @@ function MapCanvas({
         aria-hidden
       />
       <div
-        className="absolute inset-0 opacity-[0.22] bg-[linear-gradient(rgba(163,230,53,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(163,230,53,0.07)_1px,transparent_1px)] [background-size:48px_48px]"
+        className={cn(
+          "absolute inset-0 bg-[linear-gradient(rgba(163,230,53,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(163,230,53,0.07)_1px,transparent_1px)] [background-size:48px_48px]",
+          /* Mobile collapsed: quieter grid under frosted search. Expanded + desktop keep 0.22. */
+          expanded
+            ? "opacity-[0.22]"
+            : "opacity-[0.06] lg:opacity-[0.22]"
+        )}
         aria-hidden
       />
       <div
@@ -213,6 +247,7 @@ export function ExploreView({
   const [focused, setFocused] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
   const [booked, setBooked] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -258,10 +293,11 @@ export function ExploreView({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [sheetOpen]);
 
-  /** Desktop never uses the mobile fullscreen-map mode. */
+  /** Desktop: embedded map region (no fullscreen expand). */
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
     function syncDesktop() {
+      setIsDesktop(mq.matches);
       if (mq.matches) setMapExpanded(false);
     }
     syncDesktop();
@@ -327,7 +363,11 @@ export function ExploreView({
           "flex h-11 w-full items-center justify-center gap-2 rounded-2xl border text-sm font-semibold transition",
           filtersOpen || chip
             ? "border-border-brand bg-brand-muted text-brand"
-            : "border-border bg-bg-elevated text-fg-muted hover:border-border-strong hover:text-fg"
+            : cn(
+                "border-border bg-bg-elevated text-fg-muted hover:border-border-strong hover:text-fg",
+                /* Mobile: frosted glass aligned with SearchBox. */
+                "max-lg:border-white/10 max-lg:bg-bg/55 max-lg:backdrop-blur-xl"
+              )
         )}
       >
         <Filter className="h-4 w-4" />
@@ -394,6 +434,7 @@ export function ExploreView({
         "lg:[grid-template-areas:'search_map'_'list_map']"
       )}
     >
+      {/* DOM order matches visual flow (search → map → list) to avoid WebKit scroll layering. */}
       {!mapExpanded ? (
         <div
           className={cn(
@@ -417,23 +458,10 @@ export function ExploreView({
         </div>
       ) : null}
 
-      {!mapExpanded ? (
-        <div
-          className={cn(
-            "[grid-area:list] min-h-0",
-            "lg:relative lg:z-10 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden"
-          )}
-        >
-          {/* overscroll-contain: keep wheel inside the list once it is a real scrollport */}
-          <div className="space-y-3 lg:min-h-0 lg:flex-1 lg:space-y-3 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
-            {sessionList}
-          </div>
-        </div>
-      ) : null}
-
       <div
         className={cn(
-          "[grid-area:map] relative z-0 min-h-0 w-full",
+          /* No z-0 on mobile: avoids a forced stacking context under search/filters. */
+          "[grid-area:map] relative min-h-0 w-full",
           "lg:z-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden"
         )}
       >
@@ -445,6 +473,7 @@ export function ExploreView({
             expanded={mapExpanded}
             onExpand={expandMap}
             hideExpandHint={showPreview && !mapExpanded}
+            expandable={!isDesktop}
           />
 
           {showPreview && activeSession ? (
@@ -476,6 +505,20 @@ export function ExploreView({
         </div>
       </div>
 
+      {!mapExpanded ? (
+        <div
+          className={cn(
+            "[grid-area:list] min-h-0",
+            "lg:relative lg:z-10 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden"
+          )}
+        >
+          {/* overscroll-contain: keep wheel inside the list once it is a real scrollport */}
+          <div className="space-y-3 lg:min-h-0 lg:flex-1 lg:space-y-3 lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+            {sessionList}
+          </div>
+        </div>
+      ) : null}
+
       {mapExpanded ? (
         <div
           className={cn(
@@ -502,10 +545,10 @@ export function ExploreView({
               type="button"
               onClick={() => setFiltersOpen((v) => !v)}
               className={cn(
-                "flex h-11 w-full items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold backdrop-blur-md transition",
+                "flex h-11 w-full items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold backdrop-blur-xl transition",
                 filtersOpen || chip
                   ? "border-border-brand bg-brand-muted text-brand"
-                  : "border-border bg-surface/95 text-fg-muted"
+                  : "border-white/10 bg-bg/55 text-fg-muted"
               )}
             >
               <Filter className="h-4 w-4" />

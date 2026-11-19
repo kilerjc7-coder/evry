@@ -21,7 +21,7 @@ export function AppHeader({
   const unread = notifications.filter((n) => n.unread).length;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050505]/90 px-4 py-3 backdrop-blur-md lg:px-6">
+    <header className="sticky top-0 z-[100] isolate border-b border-white/10 bg-[#050505]/90 px-4 py-3 backdrop-blur-md lg:px-6">
       <div className="relative mx-auto flex max-w-md items-center justify-between lg:max-w-7xl">
         <button type="button" onClick={onExit} aria-label="Volver al inicio">
           <Logo />
