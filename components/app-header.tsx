@@ -7,18 +7,22 @@ import {
   NotificationsPanel,
   type AppNotification,
 } from "@/components/notifications-panel";
+import { cn } from "@/lib/cn";
 
 export function AppHeader({
   onExit,
   notifications,
   trailing,
   inert,
+  /** xl+: logo rail matches SideNav width (248px); mobile/lg unchanged. */
+  alignWithSideNav = false,
 }: {
   onExit: () => void;
   notifications: AppNotification[];
   trailing?: ReactNode;
   /** When set, header chrome is non-interactive (e.g. Sheet open). */
   inert?: boolean;
+  alignWithSideNav?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const unread = notifications.filter((n) => n.unread).length;
@@ -26,14 +30,34 @@ export function AppHeader({
   return (
     <header
       inert={inert || undefined}
-      className="sticky top-0 z-[100] isolate border-b border-white/10 bg-[#050505]/90 px-4 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-3 backdrop-blur-md lg:px-6"
+      className={cn(
+        "sticky top-0 z-[100] isolate border-b border-white/10 bg-[#050505]/90 px-4 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-3 backdrop-blur-md lg:px-6",
+        alignWithSideNav && "xl:px-0"
+      )}
     >
-      <div className="relative mx-auto flex max-w-md items-center justify-between lg:max-w-7xl">
-        <button type="button" onClick={onExit} aria-label="Volver al inicio">
-          <Logo />
-        </button>
+      <div
+        className={cn(
+          "relative mx-auto flex max-w-md items-center justify-between lg:max-w-7xl",
+          alignWithSideNav && "xl:mx-0 xl:max-w-none xl:w-full"
+        )}
+      >
+        <div
+          className={cn(
+            alignWithSideNav &&
+              "xl:flex xl:w-[248px] xl:shrink-0 xl:items-center xl:px-3"
+          )}
+        >
+          <button type="button" onClick={onExit} aria-label="Volver al inicio">
+            <Logo />
+          </button>
+        </div>
 
-        <div className="flex items-center gap-2">
+        <div
+          className={cn(
+            "flex items-center gap-2",
+            alignWithSideNav && "xl:flex-1 xl:justify-end xl:pr-6"
+          )}
+        >
           {trailing}
           <div className="relative">
             <button

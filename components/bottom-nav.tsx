@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { cn } from "@/lib/cn";
 
 export type NavItem<T extends string> = {
   id: T;
@@ -10,13 +11,22 @@ export function BottomNav<T extends string>({
   items,
   active,
   onChange,
+  className,
 }: {
   items: NavItem<T>[];
   active: T;
   onChange: (id: T) => void;
+  /** Override hide breakpoint (default `lg:hidden`). Athlete uses `xl:hidden`. */
+  className?: string;
 }) {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/95 backdrop-blur-md lg:hidden">
+    <nav
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#050505]/95 backdrop-blur-md",
+        /* cn does not merge Tailwind conflicts — hide breakpoint is exclusive. */
+        className ?? "lg:hidden"
+      )}
+    >
       <div
         className="mx-auto grid max-w-md px-1 pt-2"
         style={{
