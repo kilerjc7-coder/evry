@@ -6,6 +6,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
   Filter,
@@ -22,12 +23,24 @@ import { cn } from "@/lib/cn";
 import { hasClinicalTerms, normalizeText } from "@/lib/clinical";
 import { CHIPS, SESSIONS, type ChipId, type Session } from "@/lib/sessions";
 
-/** Clears sticky AppHeader (logo + py) + safe area; used by expanded map chrome. */
+/**
+ * Clears sticky AppHeader (logo + py) + safe area.
+ * B.2: expanded MapCanvas is inset-0; these offsets remain for chrome / Preview / Sheet.
+ */
 const MAP_EXPANDED_TOP =
   "top-[max(4.5rem,calc(env(safe-area-inset-top)+3.75rem))]";
-/** Explicit height — avoids collapse when leaving h-[38vh] (transition-all was zeroing layout). */
+/**
+ * Clears fixed BottomNav chrome + home-indicator safe area.
+ * Same offset language as Sheet panel / expanded Preview / main pb.
+ */
+const MAP_EXPANDED_BOTTOM =
+  "bottom-[max(5.5rem,calc(env(safe-area-inset-bottom,0px)+4.75rem))]";
+/**
+ * Band height between header and BottomNav (Safari-safe).
+ * Used by expanded search/filter chrome — keep in sync with TOP/BOTTOM.
+ */
 const MAP_EXPANDED_HEIGHT =
-  "h-[calc(100dvh-max(4.5rem,calc(env(safe-area-inset-top)+3.75rem)))]";
+  "h-[calc(100dvh-max(4.5rem,calc(env(safe-area-inset-top)+3.75rem))-max(5.5rem,calc(env(safe-area-inset-bottom,0px)+4.75rem)))]";
 
 /** Scroll only `container` so a list card enters view (nearest-edge). No-op if already visible. */
 function scrollChildIntoListContainer(
@@ -190,6 +203,18 @@ function MapSessionPins({
   });
 }
 
+/**
+ * B.3 map pan modes (mobile):
+ * - free: expanded XY 1:1, touch-action none, capture on pointerdown
+ * - page-scroll-y: collapsed; horizontal drag pans; vertical yields to page scroll
+ * - off: desktop or Sheet open
+ * Transform via refs + rAF (no React state on pointermove).
+ */
+const MAP_PAN_THRESHOLD_PX = 4;
+const MAP_PAN_WORLD_SCALE = 1.75;
+
+type MapPanMode = "free" | "page-scroll-y" | "off";
+
 function MapCanvas({
   sessions,
   activeId,
@@ -202,6 +227,8 @@ function MapCanvas({
   expandable,
   /** When Sheet is open, canvas pins are visual-only; hits come from the overlay layer. */
   pinsInteractive = true,
+  /** Mobile pan behaviour; see MapPanMode. */
+  panMode = "off",
 }: {
   sessions: Session[];
   activeId: string | null;
@@ -213,8 +240,293 @@ function MapCanvas({
   hideExpandHint?: boolean;
   expandable: boolean;
   pinsInteractive?: boolean;
+  panMode?: MapPanMode;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const worldRef = useRef<HTMLDivElement>(null);
+  const panRef = useRef({ x: 0, y: 0 });
+  const pendingPanRef = useRef<{ x: number; y: number } | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const panModeRef = useRef(panMode);
+  panModeRef.current = panMode;
+
+  const gestureRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+    maxX: number;
+    maxY: number;
+    /** free: true after threshold. page-scroll-y: true only after horizontal lock. */
+    dragging: boolean;
+    /** page-scroll-y only: axis decided after threshold. */
+    axis: "x" | "y" | null;
+  } | null>(null);
+  const suppressClickRef = useRef(false);
+  /** page-scroll-y: document listeners so axis recognition is not lost without capture. */
+  const pageScrollGestureCleanupRef = useRef<(() => void) | null>(null);
+
+  const panActive = panMode !== "off";
+
+  function cancelScheduledPan() {
+    if (rafRef.current == null) return;
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    pendingPanRef.current = null;
+  }
+
+  function writePanTransform(x: number, y: number) {
+    panRef.current = { x, y };
+    const world = worldRef.current;
+    if (!world) return;
+    world.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+  }
+
+  function schedulePan(x: number, y: number) {
+    pendingPanRef.current = { x, y };
+    if (rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      const next = pendingPanRef.current;
+      if (!next) return;
+      writePanTransform(next.x, next.y);
+    });
+  }
+
+  function clearPageScrollGestureListeners() {
+    pageScrollGestureCleanupRef.current?.();
+    pageScrollGestureCleanupRef.current = null;
+  }
+
+  function resetPanWorld() {
+    clearPageScrollGestureListeners();
+    cancelScheduledPan();
+    writePanTransform(0, 0);
+    gestureRef.current = null;
+    suppressClickRef.current = false;
+  }
+
+  /* Reset offset + in-flight gesture on every mode change (collapse ↔ expand ↔ off). */
+  useEffect(() => {
+    resetPanWorld();
+  }, [panMode]);
+
+  /* Re-apply pan after React commits (parent re-renders must not wipe the transform). */
+  useLayoutEffect(() => {
+    if (!panActive) return;
+    const world = worldRef.current;
+    if (!world) return;
+    const { x, y } = panRef.current;
+    world.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+  });
+
+  useEffect(() => {
+    return () => {
+      clearPageScrollGestureListeners();
+      cancelScheduledPan();
+    };
+  }, []);
+
+  function releaseGesture(
+    target: HTMLDivElement | null,
+    pointerId: number,
+    opts?: { suppressClick?: boolean }
+  ) {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== pointerId) return;
+    if (opts?.suppressClick) suppressClickRef.current = true;
+    clearPageScrollGestureListeners();
+    if (target) {
+      try {
+        if (target.hasPointerCapture(pointerId)) {
+          target.releasePointerCapture(pointerId);
+        }
+      } catch {
+        /* already released */
+      }
+    }
+    gestureRef.current = null;
+  }
+
+  function applyPanFromGesture(
+    gesture: NonNullable<typeof gestureRef.current>,
+    dx: number,
+    dy: number
+  ) {
+    const nextX = Math.max(
+      -gesture.maxX,
+      Math.min(gesture.maxX, gesture.originX + dx)
+    );
+    const nextY = Math.max(
+      -gesture.maxY,
+      Math.min(gesture.maxY, gesture.originY + dy)
+    );
+    schedulePan(nextX, nextY);
+  }
+
+  /**
+   * page-scroll-y axis lock (Safari-friendly):
+   * - wait until an axis reaches the 4px threshold (no hypot abort)
+   * - horizontal when abs(dx) >= 4 && abs(dx) >= abs(dy) (ties → pan)
+   * - vertical only when abs(dy) clearly dominates
+   */
+  function lockPageScrollAxis(
+    gesture: NonNullable<typeof gestureRef.current>,
+    dx: number,
+    dy: number,
+    root: HTMLDivElement | null
+  ): "pending" | "x" | "y" {
+    if (gesture.dragging) return "x";
+    const adx = Math.abs(dx);
+    const ady = Math.abs(dy);
+    if (adx < MAP_PAN_THRESHOLD_PX && ady < MAP_PAN_THRESHOLD_PX) {
+      return "pending";
+    }
+    if (adx >= MAP_PAN_THRESHOLD_PX && adx >= ady) {
+      gesture.axis = "x";
+      gesture.dragging = true;
+      suppressClickRef.current = true;
+      if (root) {
+        try {
+          root.setPointerCapture(gesture.pointerId);
+        } catch {
+          /* capture unavailable — document listeners still drive pan */
+        }
+      }
+      return "x";
+    }
+    if (ady >= MAP_PAN_THRESHOLD_PX && ady > adx) {
+      gesture.axis = "y";
+      suppressClickRef.current = true;
+      return "y";
+    }
+    return "pending";
+  }
+
+  function handlePageScrollPointerMove(clientX: number, clientY: number) {
+    const gesture = gestureRef.current;
+    if (!gesture || panModeRef.current !== "page-scroll-y") return;
+    const dx = clientX - gesture.startX;
+    const dy = clientY - gesture.startY;
+    if (!gesture.dragging) {
+      const lock = lockPageScrollAxis(gesture, dx, dy, rootRef.current);
+      if (lock === "pending") return;
+      if (lock === "y") {
+        /* Yield to native page scroll; do not capture / pan. */
+        clearPageScrollGestureListeners();
+        gestureRef.current = null;
+        return;
+      }
+    }
+    applyPanFromGesture(gesture, dx, dy);
+  }
+
+  function bindPageScrollGestureListeners(pointerId: number) {
+    clearPageScrollGestureListeners();
+    const onMove = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      if (panModeRef.current !== "page-scroll-y") return;
+      handlePageScrollPointerMove(event.clientX, event.clientY);
+    };
+    const onEnd = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      releaseGesture(rootRef.current, pointerId);
+    };
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onEnd);
+    document.addEventListener("pointercancel", onEnd);
+    pageScrollGestureCleanupRef.current = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onEnd);
+      document.removeEventListener("pointercancel", onEnd);
+    };
+  }
+
+  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (panModeRef.current === "off") return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    suppressClickRef.current = false;
+    const root = rootRef.current;
+    const { width, height } = root?.getBoundingClientRect() ?? {
+      width: 0,
+      height: 0,
+    };
+    const maxX = (width * (MAP_PAN_WORLD_SCALE - 1)) / 2;
+    const maxY = (height * (MAP_PAN_WORLD_SCALE - 1)) / 2;
+    gestureRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: panRef.current.x,
+      originY: panRef.current.y,
+      maxX,
+      maxY,
+      dragging: false,
+      axis: null,
+    };
+    /* free: capture immediately. page-scroll-y: document track until horizontal lock. */
+    if (panModeRef.current === "free") {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    } else if (panModeRef.current === "page-scroll-y") {
+      bindPageScrollGestureListeners(event.pointerId);
+    }
+  }
+
+  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const mode = panModeRef.current;
+    const gesture = gestureRef.current;
+    if (mode === "off" || !gesture || gesture.pointerId !== event.pointerId) {
+      return;
+    }
+    /* page-scroll-y is driven by document listeners (avoids lost moves pre-capture). */
+    if (mode === "page-scroll-y") return;
+
+    /* free — expanded XY pan (unchanged). */
+    const dx = event.clientX - gesture.startX;
+    const dy = event.clientY - gesture.startY;
+    if (!gesture.dragging) {
+      if (Math.hypot(dx, dy) < MAP_PAN_THRESHOLD_PX) return;
+      gesture.dragging = true;
+      suppressClickRef.current = true;
+    }
+    applyPanFromGesture(gesture, dx, dy);
+  }
+
+  function onPointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (panModeRef.current === "page-scroll-y") {
+      releaseGesture(rootRef.current, event.pointerId);
+      return;
+    }
+    releaseGesture(event.currentTarget, event.pointerId);
+  }
+
+  function onPointerCancel(event: ReactPointerEvent<HTMLDivElement>) {
+    if (panModeRef.current === "page-scroll-y") {
+      releaseGesture(rootRef.current, event.pointerId, { suppressClick: true });
+      return;
+    }
+    releaseGesture(event.currentTarget, event.pointerId, { suppressClick: true });
+  }
+
+  function onLostPointerCapture(event: ReactPointerEvent<HTMLDivElement>) {
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    if (gesture.dragging) suppressClickRef.current = true;
+    /* page-scroll-y may keep document listeners until pointerup; free ends here. */
+    if (panModeRef.current === "free") {
+      gestureRef.current = null;
+    } else if (panModeRef.current === "page-scroll-y" && !gesture.dragging) {
+      clearPageScrollGestureListeners();
+      gestureRef.current = null;
+    }
+  }
+
   function handleCanvasClick() {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
     /* Collapsed mobile: first empty tap expands and keeps selection. */
     if (expandable && !expanded) {
       onExpand();
@@ -223,56 +535,135 @@ function MapCanvas({
     onEmptyClick?.();
   }
 
+  function handleSelectPin(id: string) {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    onSelectPin(id);
+  }
+
+  const panOriginPercent = `${-((MAP_PAN_WORLD_SCALE - 1) / 2) * 100}%`;
+  const touchActionStyle =
+    panMode === "free"
+      ? "none"
+      : panMode === "page-scroll-y"
+        ? "pan-y"
+        : undefined;
+
   return (
     <div
+      ref={rootRef}
       role="region"
       aria-label={expanded ? "Mapa de sesiones expandido" : "Mapa de sesiones"}
       onClick={handleCanvasClick}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerCancel}
+      onLostPointerCapture={onLostPointerCapture}
       className={cn(
-        "relative w-full overflow-hidden border border-border bg-[#060a08] text-left",
+        "w-full overflow-hidden border border-border bg-[#060a08] text-left",
         /* Desktop: always fills the map column; never goes fixed/fullscreen. */
-        "lg:h-full lg:min-h-0 lg:cursor-default lg:rounded-2xl lg:border-border-strong",
+        "lg:min-h-0 lg:cursor-default lg:rounded-2xl lg:border-border-strong",
+        panMode === "free" &&
+          "touch-action-none cursor-grab active:cursor-grabbing",
+        panMode === "page-scroll-y" && "touch-pan-y cursor-grab active:cursor-grabbing",
         expanded
-          ? /* z-50 < AppHeader z-[100]; MAP_EXPANDED_TOP keeps chrome below the header. */
-            `fixed inset-x-0 bottom-0 z-50 ${MAP_EXPANDED_TOP} ${MAP_EXPANDED_HEIGHT} rounded-none border-0 lg:static lg:inset-auto lg:z-auto lg:h-full lg:border lg:rounded-2xl`
+          ? /* B.2: full-viewport under header (z-100) and BottomNav (z-40). No relative — cn does not merge. */
+            "fixed inset-0 z-30 isolate rounded-none border-0 lg:static lg:inset-auto lg:z-auto lg:h-full lg:border lg:rounded-2xl"
           : cn(
               /* isolate + z-0: contain blur layers so they can’t paint over sticky AppHeader (iOS). */
-              "isolate z-0 h-[38vh] min-h-56 rounded-2xl max-lg:border-transparent lg:h-full lg:min-h-0",
-              expandable && "cursor-pointer"
+              "relative isolate z-0 h-[38vh] min-h-56 rounded-2xl max-lg:border-transparent lg:h-full lg:min-h-0",
+              expandable && panMode === "off" && "cursor-pointer"
             )
       )}
+      style={touchActionStyle ? { touchAction: touchActionStyle } : undefined}
     >
-      {/* Simulated zone field — abstract depth, not real cartography */}
       <div
-        className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,#0c1610_0%,#050505_62%)]"
-        aria-hidden
-      />
-      <div
-        className={cn(
-          "absolute inset-0 bg-[linear-gradient(rgba(163,230,53,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(163,230,53,0.07)_1px,transparent_1px)] [background-size:48px_48px]",
-          /* Mobile collapsed: quieter grid under frosted search. Expanded + desktop keep 0.22. */
-          expanded
-            ? "opacity-[0.22]"
-            : "opacity-[0.06] lg:opacity-[0.22]"
-        )}
-        aria-hidden
-      />
-      <div
-        className="absolute left-[12%] top-[18%] h-36 w-44 rounded-[40%] bg-brand-subtle blur-2xl"
-        aria-hidden
-      />
-      <div
-        className="absolute bottom-[8%] left-[22%] h-40 w-52 rounded-[45%] bg-[#0a1a12] blur-xl"
-        aria-hidden
-      />
-      <div
-        className="absolute right-[6%] top-[28%] h-48 w-36 rotate-12 rounded-[40%] bg-surface-overlay/80 blur-2xl"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.55)_100%)]"
-        aria-hidden
-      />
+        ref={worldRef}
+        className="absolute"
+        style={
+          panActive
+            ? {
+                width: `${MAP_PAN_WORLD_SCALE * 100}%`,
+                height: `${MAP_PAN_WORLD_SCALE * 100}%`,
+                left: panOriginPercent,
+                top: panOriginPercent,
+                willChange: "transform",
+              }
+            : { inset: 0 }
+        }
+      >
+        {/* Simulated zone field — abstract depth, not real cartography */}
+        <div
+          className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,#0c1610_0%,#050505_62%)]"
+          aria-hidden
+        />
+        <div
+          className={cn(
+            "absolute inset-0 bg-[linear-gradient(rgba(163,230,53,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(163,230,53,0.07)_1px,transparent_1px)] [background-size:48px_48px]",
+            /* Mobile collapsed: quieter grid under frosted search. Expanded + desktop keep 0.22. */
+            expanded
+              ? "opacity-[0.22]"
+              : "opacity-[0.06] lg:opacity-[0.22]"
+          )}
+          aria-hidden
+        />
+        {/*
+          Atmosphere blobs: expanded (+ desktop collapsed) keep CSS filter blur.
+          Collapsed mobile uses radial gradients only — Safari/WebKit filter layers
+          can paint over position:fixed BottomNav while the map scrolls.
+        */}
+        <div
+          className={cn(
+            "absolute left-[12%] top-[18%] h-36 w-44 rounded-[40%]",
+            expanded
+              ? "bg-brand-subtle blur-2xl"
+              : cn(
+                  "bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,#a3e635_28%,transparent)_0%,transparent_72%)]",
+                  "lg:bg-brand-subtle lg:[background-image:none] lg:blur-2xl"
+                )
+          )}
+          aria-hidden
+        />
+        <div
+          className={cn(
+            "absolute bottom-[8%] left-[22%] h-40 w-52 rounded-[45%]",
+            expanded
+              ? "bg-[#0a1a12] blur-xl"
+              : cn(
+                  "bg-[radial-gradient(ellipse_at_center,#0a1a12_0%,transparent_72%)]",
+                  "lg:bg-[#0a1a12] lg:[background-image:none] lg:blur-xl"
+                )
+          )}
+          aria-hidden
+        />
+        <div
+          className={cn(
+            "absolute right-[6%] top-[28%] h-48 w-36 rounded-[40%]",
+            expanded
+              ? "rotate-12 bg-surface-overlay/80 blur-2xl"
+              : cn(
+                  "bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,#18181b_85%,transparent)_0%,transparent_70%)]",
+                  "lg:rotate-12 lg:bg-surface-overlay/80 lg:[background-image:none] lg:blur-2xl"
+                )
+          )}
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.55)_100%)]"
+          aria-hidden
+        />
+
+        <MapSessionPins
+          sessions={sessions}
+          activeId={activeId}
+          onSelectPin={handleSelectPin}
+          mode="visual"
+          interactive={pinsInteractive}
+        />
+      </div>
 
       <div className="pointer-events-none absolute top-3 left-3 z-20 flex items-center gap-1.5 rounded-full border border-border bg-bg/70 px-2.5 py-1 text-[10px] font-medium tracking-wide text-fg-subtle uppercase backdrop-blur-sm max-lg:hidden">
         <MapPin className="h-3 w-3 text-brand" aria-hidden />
@@ -296,14 +687,6 @@ function MapCanvas({
           Toca para expandir
         </button>
       ) : null}
-
-      <MapSessionPins
-        sessions={sessions}
-        activeId={activeId}
-        onSelectPin={onSelectPin}
-        mode="visual"
-        interactive={pinsInteractive}
-      />
     </div>
   );
 }
@@ -363,6 +746,8 @@ export function ExploreView({
     () => visible.find((session) => session.id === activeId) ?? null,
     [visible, activeId]
   );
+  /** Declared before effects that list it in deps (avoids TDZ on Fast Refresh). */
+  const showPreview = Boolean(activeSession && !sheetOpen);
 
   useEffect(() => {
     if (activeId && !visible.some((session) => session.id === activeId)) {
@@ -464,7 +849,6 @@ export function ExploreView({
     setFocused,
   };
 
-  const showPreview = Boolean(activeSession && !sheetOpen);
   const reservedActive = activeSession
     ? booked.includes(activeSession.id)
     : false;
@@ -475,6 +859,7 @@ export function ExploreView({
   /**
    * D3.3.2/D: after Sheet closes, focus «Ver sesión» again (Preview remounts).
    * Pin changes while Sheet stays open do not run this (sheetOpen stays true).
+   * Depends on showPreview so the effect re-runs after Preview remounts.
    */
   useLayoutEffect(() => {
     if (sheetOpen || !restoreFocusOnSheetCloseRef.current) return;
@@ -625,16 +1010,25 @@ export function ExploreView({
               hideExpandHint={showPreview && !mapExpanded}
               expandable={!isDesktop}
               pinsInteractive={!sheetOpen}
+              panMode={
+                isDesktop || sheetOpen
+                  ? "off"
+                  : mapExpanded
+                    ? "free"
+                    : "page-scroll-y"
+              }
             />
           </div>
 
           {showPreview && activeSession ? (
             <div
               className={cn(
-                "pointer-events-none z-[56]",
+                "pointer-events-none",
                 mapExpanded
-                  ? "fixed inset-x-4 bottom-[max(5.5rem,calc(env(safe-area-inset-bottom)+4.75rem))] mx-auto max-w-md lg:absolute lg:inset-x-3 lg:bottom-3 lg:flex lg:max-w-none lg:justify-center"
-                  : "absolute inset-x-3 bottom-3 lg:flex lg:justify-center"
+                  ? /* Above map (30), below BottomNav (40); sits on the map band bottom edge. */
+                    `fixed inset-x-4 z-[35] mx-auto max-w-md ${MAP_EXPANDED_BOTTOM} lg:absolute lg:inset-x-3 lg:bottom-3 lg:z-[35] lg:flex lg:max-w-none lg:justify-center`
+                  : /* z-20 < BottomNav z-40 so nav stays tappable when Preview overlaps. */
+                    "absolute inset-x-3 bottom-3 z-20 lg:flex lg:justify-center"
               )}
             >
               <MapSessionPreview
@@ -658,7 +1052,8 @@ export function ExploreView({
               className={cn(
                 "pointer-events-none",
                 mapExpanded
-                  ? `fixed inset-x-0 bottom-0 z-[120] ${MAP_EXPANDED_TOP} ${MAP_EXPANDED_HEIGHT} lg:absolute lg:inset-0 lg:top-auto lg:bottom-auto lg:z-[25]`
+                  ? /* Same inset-0 as expanded MapCanvas so pin % coords stay aligned; z-120 above scrim. */
+                    "fixed inset-0 z-[120] lg:absolute lg:inset-0 lg:top-auto lg:bottom-auto lg:z-[25]"
                   : "absolute inset-0 z-[120] lg:z-[25]"
               )}
             >
@@ -704,8 +1099,10 @@ export function ExploreView({
       {mapExpanded ? (
         <div
           className={cn(
-            "pointer-events-none fixed inset-x-0 bottom-0 z-[55] lg:hidden",
-            MAP_EXPANDED_TOP
+            /* z-35 < BottomNav z-40; same TOP+HEIGHT band as map; PE-none for nav taps. */
+            "pointer-events-none fixed inset-x-0 z-[35] lg:hidden",
+            MAP_EXPANDED_TOP,
+            MAP_EXPANDED_HEIGHT
           )}
           inert={sheetOpen || undefined}
         >

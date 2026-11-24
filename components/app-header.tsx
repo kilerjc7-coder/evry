@@ -12,16 +12,22 @@ export function AppHeader({
   onExit,
   notifications,
   trailing,
+  inert,
 }: {
   onExit: () => void;
   notifications: AppNotification[];
   trailing?: ReactNode;
+  /** When set, header chrome is non-interactive (e.g. Sheet open). */
+  inert?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const unread = notifications.filter((n) => n.unread).length;
 
   return (
-    <header className="sticky top-0 z-[100] isolate border-b border-white/10 bg-[#050505]/90 px-4 py-3 backdrop-blur-md lg:px-6">
+    <header
+      inert={inert || undefined}
+      className="sticky top-0 z-[100] isolate border-b border-white/10 bg-[#050505]/90 px-4 pt-[calc(0.75rem+env(safe-area-inset-top,0px))] pb-3 backdrop-blur-md lg:px-6"
+    >
       <div className="relative mx-auto flex max-w-md items-center justify-between lg:max-w-7xl">
         <button type="button" onClick={onExit} aria-label="Volver al inicio">
           <Logo />

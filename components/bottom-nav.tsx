@@ -21,7 +21,7 @@ export function BottomNav<T extends string>({
         className="mx-auto grid max-w-md px-1 pt-2"
         style={{
           gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
-          paddingBottom: "max(0.6rem, env(safe-area-inset-bottom))",
+          paddingBottom: "max(0.6rem, env(safe-area-inset-bottom, 0px))",
         }}
       >
         {items.map((item) => {
