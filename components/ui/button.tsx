@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
@@ -103,13 +103,15 @@ export function Button({
   disabled,
   type = "button",
   children,
+  ref,
   ...props
-}: ButtonProps) {
+}: ButtonProps & { ref?: Ref<HTMLButtonElement> }) {
   const isDisabled = Boolean(disabled || loading);
 
   return (
     <button
       {...props}
+      ref={ref}
       type={type}
       disabled={isDisabled}
       aria-busy={loading ? true : undefined}

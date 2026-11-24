@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Clock, MapPin, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,35 @@ function categoryLabel(session: Session) {
   return CHIPS.find((chip) => chip.id === first)?.label ?? null;
 }
 
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled]):not([type='hidden'])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  "[tabindex]:not([tabindex='-1'])",
+].join(",");
+
+function isFocusableCandidate(el: HTMLElement) {
+  if (el.closest("[inert]")) return false;
+  if (el.hasAttribute("disabled") || el.getAttribute("aria-disabled") === "true") {
+    return false;
+  }
+  if (el.hidden || el.getAttribute("aria-hidden") === "true") return false;
+  if (typeof el.checkVisibility === "function") {
+    return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+  }
+  const style = window.getComputedStyle(el);
+  if (style.visibility === "hidden" || style.display === "none") return false;
+  return el.getClientRects().length > 0;
+}
+
+function getFocusableElements(container: HTMLElement) {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+  ).filter(isFocusableCandidate);
+}
+
 /**
  * Bottom sheet with session details and reserve CTA over the map.
  */
@@ -38,6 +68,8 @@ export function MapSessionSheet({
   onReserve,
   onClose,
 }: MapSessionSheetProps) {
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const category = categoryLabel(session);
   const disabled = reserved || insufficientCredits;
   const ctaLabel = reserved
@@ -45,6 +77,53 @@ export function MapSessionSheet({
     : insufficientCredits
       ? "Sin créditos"
       : "Reservar";
+
+  /* Focus title once on mount (Sheet open). Do not re-run when session/pin changes. */
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
+
+  /* D3.3.2/C3: keep Tab / Shift+Tab inside the dialog while mounted. */
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Tab" || !dialog) return;
+
+      const focusable = getFocusableElements(dialog);
+      const active = document.activeElement as HTMLElement | null;
+      const inside = Boolean(active && dialog.contains(active));
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+
+      const first = focusable[0]!;
+      const last = focusable[focusable.length - 1]!;
+      const index = active ? focusable.indexOf(active) : -1;
+
+      if (event.shiftKey) {
+        /* Outside, on first, or on non-tabbable inside (e.g. title) → wrap to last. */
+        if (!inside || index === 0 || (inside && index === -1)) {
+          event.preventDefault();
+          last.focus();
+        }
+        return;
+      }
+
+      /* Outside or on last → wrap to first. Mid-dialog Tab keeps native order. */
+      if (!inside || active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, []);
 
   /*
     Stacking (D3.3.1): scrim z-110 dims + blocks fondo; pin hit-layer in ExploreView
@@ -71,9 +150,11 @@ export function MapSessionSheet({
         )}
       >
         <div
+          ref={dialogRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="map-session-sheet-title"
+          tabIndex={-1}
           className={cn(
             /* Mobile: floating glass card (four corners, above BottomNav). */
             "pointer-events-auto relative mx-4 w-[calc(100%-2rem)] max-w-md rounded-2xl border border-white/10 bg-bg/55 shadow-card backdrop-blur-xl",
@@ -107,8 +188,10 @@ export function MapSessionSheet({
               </Badge>
             ) : null}
             <h2
+              ref={titleRef}
               id="map-session-sheet-title"
-              className="text-xl font-semibold tracking-tight text-fg lg:min-w-0 lg:truncate lg:text-base lg:leading-snug"
+              tabIndex={-1}
+              className="text-xl font-semibold tracking-tight text-fg outline-none lg:min-w-0 lg:truncate lg:text-base lg:leading-snug"
             >
               {session.title}
             </h2>

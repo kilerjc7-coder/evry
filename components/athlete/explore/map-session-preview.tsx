@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import { Clock, MapPin, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,8 @@ export type MapSessionPreviewProps = {
   onOpenDetails: () => void;
   onClose: () => void;
   className?: string;
+  /** Ref to «Ver sesión» for focus restore after MapSessionSheet closes. */
+  openDetailsButtonRef?: Ref<HTMLButtonElement>;
 };
 
 function categoryLabel(session: Session) {
@@ -28,6 +31,7 @@ export function MapSessionPreview({
   onOpenDetails,
   onClose,
   className,
+  openDetailsButtonRef,
 }: MapSessionPreviewProps) {
   const category = categoryLabel(session);
 
@@ -94,6 +98,7 @@ export function MapSessionPreview({
 
       <div className="mt-3 lg:mt-2.5 lg:flex lg:justify-end">
         <Button
+          ref={openDetailsButtonRef}
           type="button"
           variant="secondary"
           size="sm"

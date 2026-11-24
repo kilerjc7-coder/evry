@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Filter,
   MapPin,
@@ -192,7 +198,7 @@ function MapCanvas({
   expanded,
   onExpand,
   hideExpandHint,
-  /** Mobile: canvas is an expand control. Desktop: non-interactive region. */
+  /** Mobile: empty-map tap + dedicated control can expand. Desktop: region only. */
   expandable,
   /** When Sheet is open, canvas pins are visual-only; hits come from the overlay layer. */
   pinsInteractive = true,
@@ -219,26 +225,9 @@ function MapCanvas({
 
   return (
     <div
-      role={expandable ? "button" : "region"}
-      tabIndex={expandable ? 0 : undefined}
+      role="region"
+      aria-label={expanded ? "Mapa de sesiones expandido" : "Mapa de sesiones"}
       onClick={handleCanvasClick}
-      onKeyDown={
-        expandable
-          ? (event) => {
-              if (!expanded && (event.key === "Enter" || event.key === " ")) {
-                event.preventDefault();
-                onExpand();
-              }
-            }
-          : undefined
-      }
-      aria-label={
-        expandable
-          ? expanded
-            ? "Mapa expandido"
-            : "Expandir mapa"
-          : "Mapa de sesiones"
-      }
       className={cn(
         "relative w-full overflow-hidden border border-border bg-[#060a08] text-left",
         /* Desktop: always fills the map column; never goes fixed/fullscreen. */
@@ -290,11 +279,22 @@ function MapCanvas({
         Zona simulada
       </div>
 
-      {!expanded && !hideExpandHint ? (
-        <span className="absolute bottom-3 left-3 z-20 hidden items-center gap-1.5 rounded-full border border-border bg-bg/50 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-sm max-lg:flex">
+      {expandable && !expanded && !hideExpandHint ? (
+        <button
+          type="button"
+          aria-label="Expandir mapa"
+          onClick={(event) => {
+            event.stopPropagation();
+            onExpand();
+          }}
+          className={cn(
+            "absolute bottom-3 left-3 z-20 hidden max-lg:inline-flex items-center gap-1.5 rounded-full border border-border bg-bg/50 px-3 py-1.5 text-[11px] text-fg-muted backdrop-blur-sm",
+            "focus-visible:outline-none focus-visible:shadow-[var(--evry-ring-focus)]"
+          )}
+        >
           <MapPin className="h-3 w-3 text-brand" aria-hidden />
           Toca para expandir
-        </span>
+        </button>
       ) : null}
 
       <MapSessionPins
@@ -311,9 +311,14 @@ function MapCanvas({
 export function ExploreView({
   credits,
   onBook,
+  sheetOpen,
+  onSheetOpenChange,
 }: {
   credits: number;
   onBook: (price: number) => boolean;
+  /** Owned by AthleteApp — single source of truth for Sheet visibility. */
+  sheetOpen: boolean;
+  onSheetOpenChange: (open: boolean) => void;
 }) {
   const [query, setQuery] = useState("");
   const [consent, setConsent] = useState(false);
@@ -325,10 +330,14 @@ export function ExploreView({
   const [isDesktop, setIsDesktop] = useState(false);
   const [booked, setBooked] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const listScrollRef = useRef<HTMLDivElement>(null);
   /** Distinguishes map vs list selection without duplicating activeId. */
   const selectionSourceRef = useRef<"map" | "list" | null>(null);
+  /** «Ver sesión» remounts with Preview; used to restore focus after Sheet closes. */
+  const openDetailsButtonRef = useRef<HTMLButtonElement>(null);
+  const mapShellRef = useRef<HTMLDivElement>(null);
+  /** Set when opening Sheet from Preview; consumed once on close (not on pin change). */
+  const restoreFocusOnSheetCloseRef = useRef(false);
 
   const clinical = hasClinicalTerms(query);
 
@@ -358,9 +367,9 @@ export function ExploreView({
   useEffect(() => {
     if (activeId && !visible.some((session) => session.id === activeId)) {
       setActiveId(null);
-      setSheetOpen(false);
+      onSheetOpenChange(false);
     }
-  }, [visible, activeId]);
+  }, [visible, activeId, onSheetOpenChange]);
 
   /** One Escape listener: Sheet first (keep activeId → Preview), else clear Preview. */
   useEffect(() => {
@@ -368,15 +377,15 @@ export function ExploreView({
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") return;
       if (sheetOpen) {
-        setSheetOpen(false);
+        onSheetOpenChange(false);
         return;
       }
       setActiveId(null);
-      setSheetOpen(false);
+      onSheetOpenChange(false);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [sheetOpen, activeId]);
+  }, [sheetOpen, activeId, onSheetOpenChange]);
 
   /** Desktop: embedded map region (no fullscreen expand). */
   useEffect(() => {
@@ -428,16 +437,16 @@ export function ExploreView({
   function selectFromList(id: string) {
     selectionSourceRef.current = "list";
     setActiveId(id);
-    setSheetOpen(false);
+    onSheetOpenChange(false);
   }
 
   function clearSelection() {
     setActiveId(null);
-    setSheetOpen(false);
+    onSheetOpenChange(false);
   }
 
   function closeSheet() {
-    setSheetOpen(false);
+    onSheetOpenChange(false);
   }
 
   function expandMap() {
@@ -462,6 +471,26 @@ export function ExploreView({
   const insufficientActive = activeSession
     ? credits < activeSession.priceCredits && !reservedActive
     : false;
+
+  /**
+   * D3.3.2/D: after Sheet closes, focus «Ver sesión» again (Preview remounts).
+   * Pin changes while Sheet stays open do not run this (sheetOpen stays true).
+   */
+  useLayoutEffect(() => {
+    if (sheetOpen || !restoreFocusOnSheetCloseRef.current) return;
+    restoreFocusOnSheetCloseRef.current = false;
+
+    const openDetails = openDetailsButtonRef.current;
+    if (openDetails) {
+      openDetails.focus();
+      return;
+    }
+
+    const selectedPin = mapShellRef.current?.querySelector<HTMLElement>(
+      'button[aria-pressed="true"]:not([aria-hidden="true"])'
+    );
+    selectedPin?.focus();
+  }, [sheetOpen, showPreview, activeId]);
 
   const filtersControl = (
     <div className="space-y-2">
@@ -551,6 +580,8 @@ export function ExploreView({
             "[grid-area:search] space-y-5",
             "lg:relative lg:z-10 lg:space-y-3"
           )}
+          // D3.3.2/C2: search/filters leave the a11y tree while Sheet is open.
+          inert={sheetOpen || undefined}
         >
           <SearchBox {...searchProps} />
           {clinical && (
@@ -575,18 +606,27 @@ export function ExploreView({
           "lg:z-0 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden"
         )}
       >
-        <div className="relative min-h-0 w-full min-w-0 lg:h-full lg:min-h-0 lg:flex-1">
-          <MapCanvas
-            sessions={visible}
-            activeId={activeId}
-            onSelectPin={selectPin}
-            onEmptyClick={showPreview ? clearSelection : undefined}
-            expanded={mapExpanded}
-            onExpand={expandMap}
-            hideExpandHint={showPreview && !mapExpanded}
-            expandable={!isDesktop}
-            pinsInteractive={!sheetOpen}
-          />
+        <div
+          ref={mapShellRef}
+          className="relative min-h-0 w-full min-w-0 lg:h-full lg:min-h-0 lg:flex-1"
+        >
+          {/*
+            contents: pass height/grid through to MapCanvas; inert only the visual map,
+            never the hit-layer or Sheet siblings below.
+          */}
+          <div className="contents" inert={sheetOpen || undefined}>
+            <MapCanvas
+              sessions={visible}
+              activeId={activeId}
+              onSelectPin={selectPin}
+              onEmptyClick={showPreview ? clearSelection : undefined}
+              expanded={mapExpanded}
+              onExpand={expandMap}
+              hideExpandHint={showPreview && !mapExpanded}
+              expandable={!isDesktop}
+              pinsInteractive={!sheetOpen}
+            />
+          </div>
 
           {showPreview && activeSession ? (
             <div
@@ -599,7 +639,11 @@ export function ExploreView({
             >
               <MapSessionPreview
                 session={activeSession}
-                onOpenDetails={() => setSheetOpen(true)}
+                openDetailsButtonRef={openDetailsButtonRef}
+                onOpenDetails={() => {
+                  restoreFocusOnSheetCloseRef.current = true;
+                  onSheetOpenChange(true);
+                }}
                 onClose={clearSelection}
               />
             </div>
@@ -645,6 +689,7 @@ export function ExploreView({
             "[grid-area:list] min-h-0",
             "lg:relative lg:z-10 lg:flex lg:min-h-0 lg:flex-col lg:overflow-hidden"
           )}
+          inert={sheetOpen || undefined}
         >
           {/* overscroll-contain: keep wheel inside the list once it is a real scrollport */}
           <div
@@ -662,6 +707,7 @@ export function ExploreView({
             "pointer-events-none fixed inset-x-0 bottom-0 z-[55] lg:hidden",
             MAP_EXPANDED_TOP
           )}
+          inert={sheetOpen || undefined}
         >
           {/* Same horizontal rhythm as athlete main: mx-auto max-w-md px-4 */}
           <div className="pointer-events-auto mx-auto w-full max-w-md space-y-3 px-4 pt-3">

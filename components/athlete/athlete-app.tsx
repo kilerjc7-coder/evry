@@ -36,6 +36,14 @@ const ITEMS = [
 export function AthleteApp({ onExit }: { onExit: () => void }) {
   const [tab, setTab] = useState<AthleteTab>("explorar");
   const [credits, setCredits] = useState(350);
+  /** Single source of truth for MapSessionSheet — ExploreView is controlled. */
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  function handleTabChange(next: AthleteTab) {
+    setTab(next);
+    /* Explore unmounts on other tabs; clear Sheet so chrome state stays accurate. */
+    if (next !== "explorar") setSheetOpen(false);
+  }
 
   return (
     <div
@@ -46,19 +54,22 @@ export function AthleteApp({ onExit }: { onExit: () => void }) {
         "lg:h-dvh lg:max-h-dvh lg:overflow-hidden"
       )}
     >
-      <AppHeader
-        onExit={onExit}
-        notifications={ATHLETE_NOTIFICATIONS}
-        trailing={
-          <button
-            type="button"
-            onClick={() => setTab("monedero")}
-            className="rounded-full border border-[#A3E635]/40 bg-[#0A0A0A] px-3 py-1.5 text-sm font-semibold"
-          >
-            <span className="text-[#A3E635]">{credits}</span> Cr
-          </button>
-        }
-      />
+      {/* D3.3.2/C2: inert chrome while Sheet is open — never wrap main (owns the Sheet). */}
+      <div inert={sheetOpen || undefined}>
+        <AppHeader
+          onExit={onExit}
+          notifications={ATHLETE_NOTIFICATIONS}
+          trailing={
+            <button
+              type="button"
+              onClick={() => setTab("monedero")}
+              className="rounded-full border border-[#A3E635]/40 bg-[#0A0A0A] px-3 py-1.5 text-sm font-semibold"
+            >
+              <span className="text-[#A3E635]">{credits}</span> Cr
+            </button>
+          }
+        />
+      </div>
 
       {/*
         Desktop: flex-1 + min-h-0 fills the space below the in-flow header.
@@ -83,6 +94,8 @@ export function AthleteApp({ onExit }: { onExit: () => void }) {
           <div className="lg:flex lg:h-full lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
             <ExploreView
               credits={credits}
+              sheetOpen={sheetOpen}
+              onSheetOpenChange={setSheetOpen}
               onBook={(price) => {
                 if (credits < price) return false;
                 setCredits((current) => current - price);
@@ -102,7 +115,9 @@ export function AthleteApp({ onExit }: { onExit: () => void }) {
         {tab === "perfil" && <AthleteProfileView onLogout={onExit} />}
       </main>
 
-      <BottomNav items={ITEMS} active={tab} onChange={setTab} />
+      <div inert={sheetOpen || undefined}>
+        <BottomNav items={ITEMS} active={tab} onChange={handleTabChange} />
+      </div>
     </div>
   );
 }
